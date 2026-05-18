@@ -11,12 +11,13 @@
     </parent>
 
     <groupId>org.jahia.community</groupId>
-    <artifactId>user-password-authentication-mfa-totp-factor</artifactId>
+    <artifactId>mfa-totp-factor</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <name>UPA - TOTP factor</name>
     <packaging>bundle</packaging>
     <description>Third-party Jahia module adding a TOTP (RFC 6238 / Google Authenticator)
-        factor to the User Password Authentication (UPA) Multi-Factor Authentication framework.</description>
+        factor to the User Password Authentication (UPA) Multi-Factor Authentication framework.
+    </description>
 
     <properties>
         <jahia-depends>user-password-authentication-api,graphql-dxm-provider</jahia-depends>
@@ -102,14 +103,14 @@
                 <version>1.11.2</version>
                 <executions>
                     <execution>
-                        <id>install node and yarn</id>
+                        <id>npm install node and yarn</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>install-node-and-yarn</goal>
                         </goals>
                         <configuration>
-                            <nodeVersion>v20.11.1</nodeVersion>
-                            <yarnVersion>v1.22.22</yarnVersion>
+                            <nodeVersion>v22.9.0</nodeVersion>
+                            <yarnVersion>v1.22.21</yarnVersion>
                         </configuration>
                     </execution>
                     <execution>

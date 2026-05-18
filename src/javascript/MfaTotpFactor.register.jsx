@@ -1,14 +1,16 @@
 import React from 'react';
 import {registry} from '@jahia/ui-extender';
-import {Shield} from '@jahia/moonstone';
+import {Security} from '@jahia/moonstone';
 import MyMfaSettings from './MfaTotpFactor/MyMfaSettings/MyMfaSettings';
 
+
 export default function () {
+    console.debug('%c mfa-totp-factor: activation in progress', 'color: #006633');
     registry.add('adminRoute', 'mfa-totp-factor', {
         targets: ['dashboard:99.2'],
-        icon: <Shield/>,
+        icon: <Security/>,
         label: 'mfa-totp-factor:title',
         isSelectable: true,
-        render: () => <MyMfaSettings/>
+        render: () => React.createElement(MyMfaSettings)
     });
 }

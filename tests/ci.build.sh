@@ -40,7 +40,7 @@ cp "${UPA_UI_TGZ}" "${ARTIFACTS_DIR}/"
 echo "  staged: $(basename "${UPA_UI_TGZ}")"
 
 echo "== Staging TOTP factor JAR =="
-TOTP_JAR=$(ls -1 "${TOTP_TARGET_DIR}"/user-password-authentication-mfa-totp-factor-*.jar 2>/dev/null | grep -v sources | grep -v javadoc | head -n1 || true)
+TOTP_JAR=$(ls -1 "${TOTP_TARGET_DIR}"/mfa-totp-factor-*.jar 2>/dev/null | grep -v sources | grep -v javadoc | head -n1 || true)
 if [[ -z "${TOTP_JAR}" ]]; then
   echo "ERROR: Could not find TOTP factor JAR under ${TOTP_TARGET_DIR}. Run 'mvn package' on mfa-totp-factor first."
   exit 1

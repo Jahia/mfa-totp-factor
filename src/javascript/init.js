@@ -8,6 +8,7 @@ export default function () {
         callback: async () => {
             await i18next.loadNamespaces('mfa-totp-factor');
             register();
+            console.debug('%c mfa-totp-factor: activation completed', 'color: #006633');
         }
     });
 }

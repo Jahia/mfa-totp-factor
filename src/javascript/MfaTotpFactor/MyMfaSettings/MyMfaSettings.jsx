@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useQuery, useMutation} from '@apollo/react-hooks';
-import {Button, Header, Typography, Chip} from '@jahia/moonstone';
+import {useQuery, useMutation} from '@apollo/client';
+import {Button, Header, Typography, Chip, Loader} from '@jahia/moonstone';
 import {ContentLayout} from '@jahia/moonstone-alpha';
 import {
     StatusQuery,
@@ -14,11 +14,29 @@ import EnrollDialog from '../EnrollDialog/EnrollDialog';
 import CodePromptDialog from '../CodePromptDialog/CodePromptDialog';
 import BackupCodesDialog from '../BackupCodesDialog/BackupCodesDialog';
 
+const mapError = err => {
+    const gql = err && err.graphQLErrors && err.graphQLErrors[0];
+    const msg = (gql && gql.message) || (err && err.message) || 'unknown_error';
+    if (msg.indexOf('invalid_code') !== -1) {
+        return 'errors.invalidCode';
+    }
+    if (msg.indexOf('locked_out') !== -1) {
+        return 'errors.lockedOut';
+    }
+    if (msg.indexOf('already_enrolled') !== -1) {
+        return 'errors.alreadyEnrolled';
+    }
+    if (msg.indexOf('not_enrolled') !== -1) {
+        return 'errors.notEnrolled';
+    }
+    return 'errors.generic';
+};
+
 const MyMfaSettings = () => {
     const {t} = useTranslation('mfa-totp-factor');
 
     const [enrollOpen, setEnrollOpen] = useState(false);
-    const [enrollData, setEnrollData] = useState(null); // {secret, otpauthUri, issuer, accountName}
+    const [enrollData, setEnrollData] = useState(null);
     const [disableOpen, setDisableOpen] = useState(false);
     const [regenOpen, setRegenOpen] = useState(false);
     const [backupCodes, setBackupCodes] = useState(null);
@@ -29,28 +47,9 @@ const MyMfaSettings = () => {
     const status = data && data.mfaTotp && data.mfaTotp.status;
     const isEnrolled = Boolean(status && status.enrolled);
 
-    const mapError = err => {
-        const gql = err && err.graphQLErrors && err.graphQLErrors[0];
-        const msg = (gql && gql.message) || (err && err.message) || 'unknown_error';
-        if (msg.indexOf('invalid_code') !== -1) {
-            return 'errors.invalidCode';
-        }
-        if (msg.indexOf('locked_out') !== -1) {
-            return 'errors.lockedOut';
-        }
-        if (msg.indexOf('already_enrolled') !== -1) {
-            return 'errors.alreadyEnrolled';
-        }
-        if (msg.indexOf('not_enrolled') !== -1) {
-            return 'errors.notEnrolled';
-        }
-        return 'errors.generic';
-    };
-
     const [enrollMutation, {loading: enrollLoading}] = useMutation(EnrollMutation, {
         onCompleted: res => {
-            const payload = res.upa.mfaFactors.totp.enroll;
-            setEnrollData(payload);
+            setEnrollData(res.upa.mfaFactors.totp.enroll);
             setErrorKey(null);
             setEnrollOpen(true);
         },
@@ -59,10 +58,9 @@ const MyMfaSettings = () => {
 
     const [confirmMutation, {loading: confirmLoading}] = useMutation(ConfirmEnrollMutation, {
         onCompleted: res => {
-            const codes = res.upa.mfaFactors.totp.confirmEnroll.backupCodes;
             setEnrollData(null);
             setEnrollOpen(false);
-            setBackupCodes(codes);
+            setBackupCodes(res.upa.mfaFactors.totp.confirmEnroll.backupCodes);
             setErrorKey(null);
             refetch();
         },
@@ -70,19 +68,19 @@ const MyMfaSettings = () => {
     });
 
     const [disableMutation, {loading: disableLoading}] = useMutation(DisableMutation, {
+        refetchQueries: [{query: StatusQuery}],
+        awaitRefetchQueries: true,
         onCompleted: () => {
             setDisableOpen(false);
             setErrorKey(null);
-            refetch();
         },
         onError: err => setErrorKey(mapError(err))
     });
 
     const [regenMutation, {loading: regenLoading}] = useMutation(RegenerateBackupCodesMutation, {
         onCompleted: res => {
-            const codes = res.upa.mfaFactors.totp.regenerateBackupCodes.backupCodes;
             setRegenOpen(false);
-            setBackupCodes(codes);
+            setBackupCodes(res.upa.mfaFactors.totp.regenerateBackupCodes.backupCodes);
             setErrorKey(null);
             refetch();
         },
@@ -94,54 +92,55 @@ const MyMfaSettings = () => {
         enrollMutation({variables: {force: false}});
     };
 
+    const mainActions = isEnrolled ? [
+        <Button key="regen"
+                size="big"
+                data-testid="regen-backup-btn"
+                label={t('regenerateBackupCodes')}
+                onClick={() => { setErrorKey(null); setRegenOpen(true); }}/>,
+        <Button key="disable"
+                size="big"
+                color="danger"
+                data-testid="disable-mfa-btn"
+                label={t('disable')}
+                onClick={() => { setErrorKey(null); setDisableOpen(true); }}/>
+    ] : [
+        <Button key="enable"
+                size="big"
+                color="accent"
+                isDisabled={enrollLoading}
+                data-testid="enable-mfa-btn"
+                label={t('enable')}
+                onClick={startEnroll}/>
+    ];
+
     return (
         <ContentLayout
             paper
             header={(
                 <div style={{backgroundColor: 'white'}}>
-                    <Header
-                        title={t('title')}
-                        mainActions={isEnrolled ? [
-                            <Button key="regen"
-                                    size="big"
-                                    data-testid="regen-backup-btn"
-                                    label={t('regenerateBackupCodes')}
-                                    onClick={() => { setErrorKey(null); setRegenOpen(true); }}/>,
-                            <Button key="disable"
-                                    size="big"
-                                    color="danger"
-                                    data-testid="disable-mfa-btn"
-                                    label={t('disable')}
-                                    onClick={() => { setErrorKey(null); setDisableOpen(true); }}/>
-                        ] : [
-                            <Button key="enable"
-                                    size="big"
-                                    color="accent"
-                                    isDisabled={enrollLoading}
-                                    data-testid="enable-mfa-btn"
-                                    label={t('enable')}
-                                    onClick={startEnroll}/>
-                        ]}
-                    />
+                    <Header title={t('title')} mainActions={mainActions}/>
                 </div>
             )}
             content={(
                 <div style={{padding: '24px'}}>
-                    {loading && <Typography>{t('loading')}</Typography>}
-                    {!loading && (
+                    {loading ? (
+                        <Loader/>
+                    ) : (
                         <>
                             <Typography variant="heading" data-testid="mfa-status">
                                 {t('status')}{' '}
                                 <Chip color={isEnrolled ? 'accent' : 'default'}
                                       label={isEnrolled ? t('enabled') : t('disabled')}/>
                             </Typography>
-                            <Typography style={{marginTop: 16, maxWidth: 720}}>
+                            <Typography style={{marginTop: 16, maxWidth: 720, display: 'block'}}>
                                 {isEnrolled
                                     ? t('descriptionEnabled', {count: (status && status.remainingBackupCodes) || 0})
                                     : t('descriptionDisabled')}
                             </Typography>
                             {errorKey && (
-                                <Typography style={{marginTop: 16, color: '#c00'}} data-testid="mfa-error">
+                                <Typography style={{marginTop: 16, color: '#c00', display: 'block'}}
+                                            data-testid="mfa-error">
                                     {t(errorKey)}
                                 </Typography>
                             )}
