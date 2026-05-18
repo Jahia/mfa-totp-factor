@@ -1,0 +1,11 @@
+[totpui:authentication] > totpuimix:component, jnt:content
+ - logo (weakreference, picker[type='image']) < jmix:image
+ - loginEmailFieldLabel (string) = 'Email' i18n autocreated mandatory
+ - loginPasswordFieldLabel (string) = 'Password' i18n autocreated mandatory
+ - loginSubmitButtonLabel (string) = 'Login' i18n autocreated mandatory
+ - loginBelowPasswordFieldHtml (string,richtext) i18n autocreated
+ - loginAdditionalActionHtml (string,richtext) i18n autocreated
+ - totpCodeVerificationFieldLabel (string) = 'Authenticator code' i18n autocreated mandatory
+ - totpCodeVerificationSubmitButtonLabel (string) = 'Verify' i18n autocreated mandatory
+ - totpCodeVerificationHelpHtml (string,richtext) = '<p>Open your authenticator app and enter the 6-digit code shown for this account.</p>' i18n autocreated
+ - totpCodeVerificationBackupCodeHintHtml (string,richtext) = '<p>Lost access to your app? Enter one of your backup codes instead.</p>' i18n autocreated

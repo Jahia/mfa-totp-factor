@@ -13,6 +13,12 @@ target/
 /src/main/resources/javascript/apps
 yarn-error.log
 
+# login-ui (JS-SDK sub-module)
+login-ui/node_modules/
+login-ui/node/
+login-ui/dist/
+login-ui/*.tgz
+
 # OS
 .DS_Store
 Thumbs.db

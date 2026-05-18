@@ -1,0 +1,22 @@
+{
+  "unexpected_error": "An unexpected error occurred",
+  "no_active_session": "No active session found. Please refresh the page and retry login again.",
+  "authentication_failed": "Invalid username or password",
+  "verification_failed": "Verification failed",
+  "suspended_user": "Your account is temporarily locked for {{suspensionDurationInHours}} hour(s). Please retry later.",
+  "suspended.restart_login": "Restart login",
+  "failed_to_check_if_user_suspended": "Failed to check if the user is suspended",
+  "failed_to_mark_user_as_suspended": "Failed to mark user as suspended",
+  "factor_type_not_supported": "Factor {{factorType}} not supported",
+  "user_not_found": "User not found",
+  "verify.loading": "Verifying the code…",
+  "verify.factor_not_prepared": "Factor {{factorType}} not prepared",
+  "verify.verification_failed": "Incorrect code. Please double-check the digits and try again.",
+  "factor.totp.invalid_code": "Invalid code. Double-check the digits and try again.",
+  "factor.totp.locked_out": "Too many failed attempts. Please try again later.",
+  "factor.totp.not_enrolled": "Two-factor authentication is not configured for this account.",
+  "factor.totp.not_authenticated": "Authentication required. Please sign in again.",
+  "factor.totp.internal_error": "An internal error occurred. Please try again.",
+  "factor.totp.useBackupCode": "Use a backup code instead",
+  "factor.totp.useAuthenticatorCode": "Use the authenticator app code instead"
+}
