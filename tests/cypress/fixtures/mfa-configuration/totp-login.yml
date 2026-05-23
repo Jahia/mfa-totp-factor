@@ -1,0 +1,10 @@
+# MFA config used by ui.totp.login.cy.ts.
+# Points the loginUrl at the per-test site's TOTP login page and enables only the
+# `totp` factor so completing initiate() always lands on the TOTP verification step.
+- editConfiguration: "org.jahia.modules.upa"
+  properties:
+    loginUrl: "/sites/sample-totp-ui/myLoginPage.html"
+    mfaEnabledFactors: "totp"
+    mfaFactorStartRateLimitSeconds: "0"
+    mfaMaxAuthFailuresBeforeLock: "10"
+    mfaUserTemporarySuspensionSeconds: "5"
