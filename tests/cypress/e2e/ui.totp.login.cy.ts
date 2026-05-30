@@ -19,6 +19,7 @@ import {
     enrollUserInTotp,
     getTotpLoginPageURL,
     installTotpMFAConfig,
+    setSiteTotpSettings,
     totpCode,
 } from './utils';
 
@@ -36,6 +37,9 @@ describe('TOTP login UI', () => {
     before(() => {
         createSiteWithTotpLoginPage(SITE_KEY);
         installTotpMFAConfig();
+        // TOTP is opt-in per site: enable it (not enforced — we pre-enrol the user so an
+        // enrolled user is challenged at login).
+        setSiteTotpSettings(SITE_KEY, true, false);
     });
 
     after(() => {

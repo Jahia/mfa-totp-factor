@@ -10,8 +10,37 @@ import {
     enableModule,
     publishAndWaitJobEnding,
 } from '@jahia/cypress';
+import gql from 'graphql-tag';
 import {confirmEnroll, enroll} from './api';
 import {totpCode} from './totp';
+
+/**
+ * Enable (or disable) TOTP MFA on a site via the new per-site GraphQL mutation.
+ * Must run as an authenticated site admin / root (the default apollo client is root).
+ * Required because TOTP is now opt-in per site — without this the factor is skipped
+ * at login even when totp is in the global mfaEnabledFactors config.
+ */
+export function setSiteTotpSettings(siteKey: string, enabled: boolean, enforced: boolean) {
+    return cy.apollo({
+        mutation: gql`
+            mutation SetSiteTotp($siteKey: String!, $enabled: Boolean!, $enforced: Boolean!) {
+                upa {
+                    mfaFactors {
+                        totp {
+                            setSiteSettings(siteKey: $siteKey, enabled: $enabled, enforced: $enforced) {
+                                siteKey
+                                enabled
+                                enforced
+                            }
+                        }
+                    }
+                }
+            }
+        `,
+        variables: {siteKey, enabled, enforced},
+        errorPolicy: 'all',
+    });
+}
 
 export const TOTP_LOGIN_PAGE_NAME = 'myLoginPage';
 

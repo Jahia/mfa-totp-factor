@@ -68,41 +68,58 @@ public class TotpFactorProvider implements MfaFactorProvider {
         String userId = preparationContext.getSessionContext().getUserId();
         String siteKey = preparationContext.getSessionContext().getSiteKey();
 
-        TotpSiteSettingsStore.TotpSiteSettings siteSettings;
-        try {
-            siteSettings = siteSettingsStore.load(siteKey);
-        } catch (RepositoryException e) {
-            logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
-            throw new MfaException(ERROR_INTERNAL);
+        // Per-site activation / enforcement only applies when there is a real site context.
+        // Without one (e.g. a direct GraphQL verify, or a login not tied to a site) the
+        // per-site policy is meaningless, so we fall back to the standard behavior:
+        // an enrolled user is challenged; an unenrolled user is rejected with not_enrolled.
+        // (Crucially, this means we NEVER short-circuit verification when siteKey is absent.)
+        if (StringUtils.isNotBlank(siteKey)) {
+            TotpSiteSettingsStore.TotpSiteSettings siteSettings;
+            try {
+                siteSettings = siteSettingsStore.load(siteKey);
+            } catch (RepositoryException e) {
+                logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
+                throw new MfaException(ERROR_INTERNAL);
+            }
+
+            // Site has TOTP disabled → skip the factor for this session. verify() will
+            // accept any submission; the login UI is expected to bypass the step entirely.
+            if (!siteSettings.isEnabled()) {
+                logger.debug("TOTP skipped for user {} (site '{}' has TOTP disabled)", userId, siteKey);
+                return new TotpPreparationResult(true);
+            }
+            if (!isEnrolled(userId)) {
+                // Enabled but the user has not enrolled:
+                //   - enforced=true  → block the login; the UI redirects to enrollment.
+                //   - enforced=false → skip the factor; the user signs in without TOTP.
+                if (siteSettings.isEnforced()) {
+                    throw new MfaException(ERROR_ENROLLMENT_REQUIRED, "user", userId);
+                }
+                logger.debug("TOTP skipped for user {} (not enrolled, site '{}' not enforcing)", userId, siteKey);
+                return new TotpPreparationResult(true);
+            }
+            // Enabled + enrolled → standard flow.
+            return new TotpPreparationResult();
         }
 
-        // If the site has TOTP disabled, treat the factor as skipped — verify() will
-        // accept any submission. The login UI is expected to bypass the TOTP step
-        // entirely in that case (it can read the site settings via GraphQL upfront).
-        if (!siteSettings.isEnabled()) {
-            logger.debug("TOTP skipped for user {} (site '{}' has TOTP disabled)", userId, siteKey);
-            return new TotpPreparationResult(true);
+        // No site context → original behavior: require an enrolled user.
+        if (!isEnrolled(userId)) {
+            throw new MfaException(ERROR_NOT_ENROLLED, "user", userId);
         }
+        return new TotpPreparationResult();
+    }
 
-        boolean enrolled;
+    /**
+     * Lightweight enrollment check that wraps the JCR exception into an {@link MfaException}.
+     * Does NOT load the Base32 secret into the heap.
+     */
+    private boolean isEnrolled(String userId) throws MfaException {
         try {
-            enrolled = userStore.isEnrolled(userId);
+            return userStore.isEnrolled(userId);
         } catch (RepositoryException e) {
             logger.warn("Failed to load TOTP user settings for {}: {}", userId, e.getMessage());
             throw new MfaException(ERROR_INTERNAL);
         }
-        if (!enrolled) {
-            // Not enrolled. Two cases:
-            //   - enforced=true  → block the login; UI redirects to enrollment.
-            //   - enforced=false → skip the factor; user gets in without TOTP.
-            if (siteSettings.isEnforced()) {
-                throw new MfaException(ERROR_ENROLLMENT_REQUIRED, "user", userId);
-            }
-            logger.debug("TOTP skipped for user {} (not enrolled, site '{}' not enforcing)", userId, siteKey);
-            return new TotpPreparationResult(true);
-        }
-        // Enrolled. Standard flow: verify() will re-read the secret from JCR.
-        return new TotpPreparationResult();
     }
 
     @Override

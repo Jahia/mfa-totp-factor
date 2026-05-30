@@ -56,6 +56,31 @@ curl -sf -u "root:${SUPER_USER_PASSWORD}" \
   -F "script=@assets/setup-smtp-server.groovy" \
   "http://localhost:${HOST_HTTP_PORT}/modules/tools/groovyConsole.jsp" >/dev/null 2>&1 || true
 
+echo "== Installing JS-SDK (.tgz) modules via the provisioning API (multipart upload) =="
+# Jahia's /var/jahia/modules hot-deploy folder only installs OSGi .jar bundles, NOT npm
+# .tgz JS-SDK packages. And provisioning `installBundle` with a bare value is resolved as a
+# Maven coordinate, not a local path. The documented way to install a LOCAL bundle is a
+# multipart upload: attach each file with -F file=@... and reference it in the script by its
+# bare filename. The provisioning engine routes the .tgz to the javascript-modules-engine.
+TGZ_LIST=$(cd artifacts/jars && ls -1 *.tgz 2>/dev/null)
+if [[ -n "${TGZ_LIST}" ]]; then
+  bundle_json=""
+  file_args=()
+  for tgz in ${TGZ_LIST}; do
+    bundle_json="${bundle_json:+${bundle_json},}\"${tgz}\""
+    file_args+=( -F "file=@artifacts/jars/${tgz}" )
+  done
+  script="[{\"installBundle\":[${bundle_json}],\"autoStart\":true}]"
+  echo "  script: ${script}"
+  curl -s -u "root:${SUPER_USER_PASSWORD}" \
+    -F "script=${script};type=application/json" \
+    "${file_args[@]}" \
+    "http://localhost:${HOST_HTTP_PORT}/modules/api/provisioning"
+  echo
+fi
+echo "== Waiting for the JS modules to register their views =="
+sleep 25
+
 echo "== Running Cypress suite =="
 set +e
 docker compose run --rm \
