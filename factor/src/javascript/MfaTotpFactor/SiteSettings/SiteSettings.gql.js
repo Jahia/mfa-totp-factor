@@ -9,6 +9,8 @@ export const SiteSettingsQuery = gql`
                 enforced
                 graceDays
                 enabledGroups
+                loginUrl
+                logoutUrl
             }
         }
     }
@@ -21,6 +23,8 @@ export const SetSiteSettingsMutation = gql`
         $enforced: Boolean!
         $graceDays: Int
         $enabledGroups: [String]
+        $loginUrl: String
+        $logoutUrl: String
     ) {
         upa {
             mfaFactors {
@@ -31,12 +35,16 @@ export const SetSiteSettingsMutation = gql`
                         enforced: $enforced
                         graceDays: $graceDays
                         enabledGroups: $enabledGroups
+                        loginUrl: $loginUrl
+                        logoutUrl: $logoutUrl
                     ) {
                         siteKey
                         enabled
                         enforced
                         graceDays
                         enabledGroups
+                        loginUrl
+                        logoutUrl
                     }
                 }
             }

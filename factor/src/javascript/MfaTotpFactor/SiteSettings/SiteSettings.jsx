@@ -16,6 +16,8 @@ const SiteSettings = () => {
     const [enforced, setEnforced] = useState(false);
     const [graceDays, setGraceDays] = useState(0);
     const [groups, setGroups] = useState('');
+    const [loginUrl, setLoginUrl] = useState('');
+    const [logoutUrl, setLogoutUrl] = useState('');
     const [savedAt, setSavedAt] = useState(null);
     const [errorKey, setErrorKey] = useState(null);
 
@@ -32,6 +34,8 @@ const SiteSettings = () => {
             setEnforced(Boolean(s.enforced));
             setGraceDays(Number(s.graceDays) || 0);
             setGroups((s.enabledGroups || []).join(', '));
+            setLoginUrl(s.loginUrl || '');
+            setLogoutUrl(s.logoutUrl || '');
         }
     }, [data]);
 
@@ -53,7 +57,9 @@ const SiteSettings = () => {
                 enabled,
                 enforced: enabled ? enforced : false,
                 graceDays: enabled && enforced ? Math.max(0, Number(graceDays) || 0) : 0,
-                enabledGroups: enabled ? groupList : []
+                enabledGroups: enabled ? groupList : [],
+                loginUrl: loginUrl.trim() || null,
+                logoutUrl: logoutUrl.trim() || null
             }
         });
     };
@@ -128,6 +134,31 @@ const SiteSettings = () => {
                                        label={t('siteSettings.groups.label')}
                                        help={t('siteSettings.groups.help')}
                                        onChange={v => setGroups(v)}/>
+
+                            <Typography variant="subheading" weight="bold" style={{display: 'block', margin: '8px 0 16px'}}>
+                                {t('siteSettings.urls.title')}
+                            </Typography>
+                            <Typography style={{display: 'block', marginBottom: 16, color: '#555'}}>
+                                {t('siteSettings.urls.help')}
+                            </Typography>
+
+                            <TextField id="totp-site-login-url"
+                                       testid="site-login-url-input"
+                                       type="text"
+                                       value={loginUrl}
+                                       placeholder="/sites/mySite/login.html"
+                                       label={t('siteSettings.loginUrl.label')}
+                                       help={t('siteSettings.loginUrl.help')}
+                                       onChange={v => setLoginUrl(v)}/>
+
+                            <TextField id="totp-site-logout-url"
+                                       testid="site-logout-url-input"
+                                       type="text"
+                                       value={logoutUrl}
+                                       placeholder="/sites/mySite/logout.html"
+                                       label={t('siteSettings.logoutUrl.label')}
+                                       help={t('siteSettings.logoutUrl.help')}
+                                       onChange={v => setLogoutUrl(v)}/>
 
                             {errorKey && (
                                 <Typography style={{color: '#c00', display: 'block', marginTop: 12}}

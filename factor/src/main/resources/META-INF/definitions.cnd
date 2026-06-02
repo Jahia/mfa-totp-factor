@@ -24,11 +24,15 @@
 
 // Per-site policy. `enabledGroups` (empty = all users) scopes the policy to specific
 // group members. `graceDays` (0 = immediate) defers enforcement for newly-prompted users.
+// `loginUrl`/`logoutUrl` let each site point its login/logout at a custom page (consumed by
+// MfaTotpLoginLogoutProvider); empty falls back to the global org.jahia.modules.totp config.
 [upaTotp:siteSettings] mixin
  - upaTotp:enabled (boolean) = false autocreated
  - upaTotp:enforced (boolean) = false autocreated
  - upaTotp:graceDays (long) = '0' autocreated
  - upaTotp:enabledGroups (string) multiple
+ - upaTotp:loginUrl (string)
+ - upaTotp:logoutUrl (string)
 
 // A single audit event. Stored as children of an upaTotp:auditLog folder (see TotpAuditLog).
 [upaTotp:auditEvent] > nt:base, mix:created

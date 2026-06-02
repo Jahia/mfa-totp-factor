@@ -80,7 +80,7 @@ public class TotpFactorQuery {
         try {
             TotpSiteSettingsStore.TotpSiteSettings s = siteSettingsStore.load(siteKey);
             return new TotpSiteSettingsResult(siteKey, s.isEnabled(), s.isEnforced(),
-                    s.getGraceDays(), s.getEnabledGroups());
+                    s.getGraceDays(), s.getEnabledGroups(), s.getLoginUrl(), s.getLogoutUrl());
         } catch (RepositoryException e) {
             logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);

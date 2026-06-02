@@ -20,9 +20,9 @@ const ROOT = {username: 'root', password: Cypress.env('SUPER_USER_PASSWORD') as 
 
 const setSiteSettings = (vars: Record<string, unknown>) => cy.apollo({
     mutation: gql`
-        mutation Set($siteKey: String!, $enabled: Boolean!, $enforced: Boolean!, $graceDays: Int, $enabledGroups: [String]) {
-            upa { mfaFactors { totp { setSiteSettings(siteKey: $siteKey, enabled: $enabled, enforced: $enforced, graceDays: $graceDays, enabledGroups: $enabledGroups) {
-                enabled enforced graceDays enabledGroups
+        mutation Set($siteKey: String!, $enabled: Boolean!, $enforced: Boolean!, $graceDays: Int, $enabledGroups: [String], $loginUrl: String, $logoutUrl: String) {
+            upa { mfaFactors { totp { setSiteSettings(siteKey: $siteKey, enabled: $enabled, enforced: $enforced, graceDays: $graceDays, enabledGroups: $enabledGroups, loginUrl: $loginUrl, logoutUrl: $logoutUrl) {
+                enabled enforced graceDays enabledGroups loginUrl logoutUrl
             } } } }
         }`,
     variables: vars,
@@ -30,7 +30,7 @@ const setSiteSettings = (vars: Record<string, unknown>) => cy.apollo({
 });
 
 const getSiteSettings = (siteKey: string) => cy.apollo({
-    query: gql`query Get($siteKey: String!) { mfaTotp { siteSettings(siteKey: $siteKey) { enabled enforced graceDays enabledGroups } } }`,
+    query: gql`query Get($siteKey: String!) { mfaTotp { siteSettings(siteKey: $siteKey) { enabled enforced graceDays enabledGroups loginUrl logoutUrl } } }`,
     variables: {siteKey},
     fetchPolicy: 'no-cache',
     errorPolicy: 'all'
@@ -75,14 +75,18 @@ describe('TOTP per-site policy & admin (GraphQL)', () => {
         cy.apolloClient(ROOT);
     });
 
-    it('round-trips per-site policy (enabled, enforced, graceDays, enabledGroups)', () => {
-        setSiteSettings({siteKey: SITE_KEY, enabled: true, enforced: true, graceDays: 7, enabledGroups: ['editors', 'reviewers']})
+    it('round-trips per-site policy (enabled, enforced, graceDays, enabledGroups, login/logout URLs)', () => {
+        const loginUrl = `/sites/${SITE_KEY}/login.html`;
+        const logoutUrl = `/sites/${SITE_KEY}/logout.html`;
+        setSiteSettings({siteKey: SITE_KEY, enabled: true, enforced: true, graceDays: 7, enabledGroups: ['editors', 'reviewers'], loginUrl, logoutUrl})
             .then(res => {
                 const s = res?.data?.upa?.mfaFactors?.totp?.setSiteSettings;
                 expect(s.enabled).to.be.true;
                 expect(s.enforced).to.be.true;
                 expect(s.graceDays).to.eq(7);
                 expect(s.enabledGroups).to.have.members(['editors', 'reviewers']);
+                expect(s.loginUrl).to.eq(loginUrl);
+                expect(s.logoutUrl).to.eq(logoutUrl);
             });
         getSiteSettings(SITE_KEY).then(res => {
             const s = res?.data?.mfaTotp?.siteSettings;
@@ -90,6 +94,18 @@ describe('TOTP per-site policy & admin (GraphQL)', () => {
             expect(s.enforced).to.be.true;
             expect(s.graceDays).to.eq(7);
             expect(s.enabledGroups).to.have.members(['editors', 'reviewers']);
+            expect(s.loginUrl).to.eq(loginUrl);
+            expect(s.logoutUrl).to.eq(logoutUrl);
+        });
+    });
+
+    it('clears per-site login/logout URLs when set blank (falls back to global/default)', () => {
+        setSiteSettings({siteKey: SITE_KEY, enabled: true, enforced: false, loginUrl: `/sites/${SITE_KEY}/login.html`, logoutUrl: ''});
+        setSiteSettings({siteKey: SITE_KEY, enabled: true, enforced: false, loginUrl: null, logoutUrl: null});
+        getSiteSettings(SITE_KEY).then(res => {
+            const s = res?.data?.mfaTotp?.siteSettings;
+            expect(s.loginUrl, 'blank login URL should clear to null').to.be.null;
+            expect(s.logoutUrl, 'blank logout URL should clear to null').to.be.null;
         });
     });
 

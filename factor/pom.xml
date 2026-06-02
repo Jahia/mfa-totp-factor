@@ -163,6 +163,8 @@
                             org.jahia.services.content.decorator,
                             org.jahia.services.usermanager,
                             org.jahia.settings,
+                            org.jahia.services,
+                            org.jahia.services.render,
                             org.jahia.params.valves,
                             org.jahia.api,
                             javax.servlet.http,

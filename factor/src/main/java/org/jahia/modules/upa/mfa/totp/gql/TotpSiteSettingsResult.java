@@ -17,15 +17,20 @@ public class TotpSiteSettingsResult {
     private final boolean enforced;
     private final long graceDays;
     private final List<String> enabledGroups;
+    private final String loginUrl;
+    private final String logoutUrl;
 
     public TotpSiteSettingsResult(String siteKey, boolean enabled, boolean enforced,
-                                  long graceDays, List<String> enabledGroups) {
+                                  long graceDays, List<String> enabledGroups,
+                                  String loginUrl, String logoutUrl) {
         this.siteKey = siteKey;
         this.enabled = enabled;
         this.enforced = enforced;
         this.graceDays = graceDays;
         this.enabledGroups = enabledGroups == null
                 ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(enabledGroups));
+        this.loginUrl = loginUrl;
+        this.logoutUrl = logoutUrl;
     }
 
     @GraphQLField
@@ -60,5 +65,19 @@ public class TotpSiteSettingsResult {
     @GraphQLDescription("If non-empty, the policy applies ONLY to members of these groups; empty = all users of the site.")
     public List<String> getEnabledGroups() {
         return enabledGroups;
+    }
+
+    @GraphQLField
+    @GraphQLName("loginUrl")
+    @GraphQLDescription("Per-site custom login page URL used by MfaTotpLoginLogoutProvider; null = fall back to global config.")
+    public String getLoginUrl() {
+        return loginUrl;
+    }
+
+    @GraphQLField
+    @GraphQLName("logoutUrl")
+    @GraphQLDescription("Per-site custom logout page URL used by MfaTotpLoginLogoutProvider; null = fall back to global config.")
+    public String getLogoutUrl() {
+        return logoutUrl;
     }
 }

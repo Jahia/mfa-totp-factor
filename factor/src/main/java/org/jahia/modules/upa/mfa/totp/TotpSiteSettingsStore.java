@@ -42,29 +42,42 @@ public class TotpSiteSettingsStore {
     public static final String PROP_ENFORCED = "upaTotp:enforced";
     public static final String PROP_GRACE_DAYS = "upaTotp:graceDays";
     public static final String PROP_ENABLED_GROUPS = "upaTotp:enabledGroups";
+    public static final String PROP_LOGIN_URL = "upaTotp:loginUrl";
+    public static final String PROP_LOGOUT_URL = "upaTotp:logoutUrl";
 
     /** Snapshot of the TOTP settings for a site. */
     public static final class TotpSiteSettings {
         public static final TotpSiteSettings DISABLED =
-                new TotpSiteSettings(false, false, 0L, Collections.emptyList());
+                new TotpSiteSettings(false, false, 0L, Collections.emptyList(), null, null);
 
         private final boolean enabled;
         private final boolean enforced;
         private final long graceDays;
         private final List<String> enabledGroups;
+        private final String loginUrl;
+        private final String logoutUrl;
 
-        public TotpSiteSettings(boolean enabled, boolean enforced, long graceDays, List<String> enabledGroups) {
+        public TotpSiteSettings(boolean enabled, boolean enforced, long graceDays, List<String> enabledGroups,
+                                String loginUrl, String logoutUrl) {
             this.enabled = enabled;
             this.enforced = enforced;
             this.graceDays = graceDays;
             this.enabledGroups = enabledGroups == null
                     ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(enabledGroups));
+            this.loginUrl = loginUrl;
+            this.logoutUrl = logoutUrl;
         }
 
         public boolean isEnabled()  { return enabled; }
         public boolean isEnforced() { return enforced; }
         public long getGraceDays()  { return graceDays; }
         public List<String> getEnabledGroups() { return enabledGroups; }
+
+        /** Per-site custom login page URL, or {@code null} if not set (falls back to global config). */
+        public String getLoginUrl()  { return loginUrl; }
+
+        /** Per-site custom logout page URL, or {@code null} if not set (falls back to global config). */
+        public String getLogoutUrl() { return logoutUrl; }
     }
 
     /**
@@ -92,8 +105,18 @@ public class TotpSiteSettingsStore {
                     && siteNode.getProperty(PROP_ENFORCED).getBoolean();
             long graceDays = siteNode.hasProperty(PROP_GRACE_DAYS)
                     ? siteNode.getProperty(PROP_GRACE_DAYS).getLong() : 0L;
-            return new TotpSiteSettings(enabled, enforced, graceDays, readGroups(siteNode));
+            return new TotpSiteSettings(enabled, enforced, graceDays, readGroups(siteNode),
+                    readString(siteNode, PROP_LOGIN_URL), readString(siteNode, PROP_LOGOUT_URL));
         });
+    }
+
+    /** Read a single-valued string property as a trimmed, non-empty value (or {@code null}). */
+    private static String readString(JCRNodeWrapper siteNode, String property) throws RepositoryException {
+        if (!siteNode.hasProperty(property)) {
+            return null;
+        }
+        String value = siteNode.getProperty(property).getString();
+        return (value == null || value.trim().isEmpty()) ? null : value.trim();
     }
 
     /** Read the non-blank, trimmed group names from the multi-valued enabledGroups property. */
@@ -117,7 +140,8 @@ public class TotpSiteSettingsStore {
      * permission check of its own.
      */
     public void save(JCRSessionWrapper session, String siteKey, boolean enabled, boolean enforced,
-                     long graceDays, List<String> enabledGroups) throws RepositoryException {
+                     long graceDays, List<String> enabledGroups, String loginUrl, String logoutUrl)
+            throws RepositoryException {
         if (siteKey == null || siteKey.isEmpty()) {
             throw new IllegalArgumentException("siteKey must not be empty");
         }
@@ -137,8 +161,23 @@ public class TotpSiteSettingsStore {
             }
         }
         siteNode.setProperty(PROP_ENABLED_GROUPS, cleaned.toArray(new String[0]));
+        setOrRemove(siteNode, PROP_LOGIN_URL, loginUrl);
+        setOrRemove(siteNode, PROP_LOGOUT_URL, logoutUrl);
         session.save();
-        logger.info("TOTP site settings saved for {}: enabled={}, enforced={}, graceDays={}, groups={}",
-                siteKey, enabled, enforced, graceDays, cleaned);
+        logger.info("TOTP site settings saved for {}: enabled={}, enforced={}, graceDays={}, groups={}, "
+                        + "loginUrl={}, logoutUrl={}",
+                siteKey, enabled, enforced, graceDays, cleaned, loginUrl, logoutUrl);
+    }
+
+    /** Set a single-valued string property to its trimmed value, or remove it when blank. */
+    private static void setOrRemove(JCRNodeWrapper siteNode, String property, String value) throws RepositoryException {
+        String trimmed = (value == null) ? null : value.trim();
+        if (trimmed == null || trimmed.isEmpty()) {
+            if (siteNode.hasProperty(property)) {
+                siteNode.getProperty(property).remove();
+            }
+        } else {
+            siteNode.setProperty(property, trimmed);
+        }
     }
 }

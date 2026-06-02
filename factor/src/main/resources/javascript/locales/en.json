@@ -62,6 +62,18 @@
       "label": "Restrict to groups (optional)",
       "help": "Comma-separated group names. If set, the policy applies only to members of these groups (e.g. editors). Leave empty to apply to all users of the site."
     },
+    "urls": {
+      "title": "Login routing (optional)",
+      "help": "Point this site's login and logout at custom pages. When set, unauthenticated users are redirected to the login page below instead of the default. Leave empty to fall back to the global configuration, then to Jahia's default."
+    },
+    "loginUrl": {
+      "label": "Login page URL",
+      "help": "A site page reachable without authentication that renders the TOTP login UI, e.g. /sites/mySite/login.html."
+    },
+    "logoutUrl": {
+      "label": "Logout page URL",
+      "help": "An optional custom sign-out page, e.g. /sites/mySite/logout.html."
+    },
     "reset": {
       "title": "Reset a user's MFA",
       "help": "Clear a user's TOTP enrollment when they have lost both their device and their backup codes. The user will be able to enrol again at next login.",

@@ -483,14 +483,16 @@ public class TotpFactorMutation {
 
     @GraphQLField
     @GraphQLName("setSiteSettings")
-    @GraphQLDescription("Set the per-site TOTP policy (enabled / enforced / graceDays / enabledGroups). "
-            + "Caller must be a site administrator on the target site.")
+    @GraphQLDescription("Set the per-site TOTP policy (enabled / enforced / graceDays / enabledGroups) and the "
+            + "optional per-site login/logout URLs. Caller must be a site administrator on the target site.")
     public TotpSiteSettingsResult setSiteSettings(
             @GraphQLName("siteKey") @GraphQLNonNull String siteKey,
             @GraphQLName("enabled") @GraphQLNonNull Boolean enabled,
             @GraphQLName("enforced") @GraphQLNonNull Boolean enforced,
             @GraphQLName("graceDays") Integer graceDays,
-            @GraphQLName("enabledGroups") List<String> enabledGroups) {
+            @GraphQLName("enabledGroups") List<String> enabledGroups,
+            @GraphQLName("loginUrl") String loginUrl,
+            @GraphQLName("logoutUrl") String logoutUrl) {
 
         if (StringUtils.isBlank(siteKey)) {
             throw new DataFetchingException("siteKey must not be blank");
@@ -498,10 +500,13 @@ public class TotpFactorMutation {
         JCRSessionWrapper session = TotpAdminAccess.requireSiteAdmin(siteKey);
         long grace = graceDays == null ? 0L : graceDays;
         try {
-            siteSettingsStore.save(session, siteKey, enabled, enforced, grace, enabledGroups);
+            siteSettingsStore.save(session, siteKey, enabled, enforced, grace, enabledGroups, loginUrl, logoutUrl);
             auditLog.recordEvent("setSiteSettings", OUTCOME_SUCCESS, currentUserName(), siteKey,
-                    "enabled=" + enabled + ", enforced=" + enforced + ", graceDays=" + grace);
-            return new TotpSiteSettingsResult(siteKey, enabled, enforced, grace, enabledGroups);
+                    "enabled=" + enabled + ", enforced=" + enforced + ", graceDays=" + grace
+                            + ", loginUrl=" + StringUtils.trimToEmpty(loginUrl)
+                            + ", logoutUrl=" + StringUtils.trimToEmpty(logoutUrl));
+            return new TotpSiteSettingsResult(siteKey, enabled, enforced, grace, enabledGroups,
+                    StringUtils.trimToNull(loginUrl), StringUtils.trimToNull(logoutUrl));
         } catch (RepositoryException e) {
             logger.warn("Failed to save TOTP site settings for {}: {}", siteKey, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);

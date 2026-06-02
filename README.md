@@ -41,13 +41,17 @@ It also ships an editable Karaf configuration (PID `org.jahia.modules.totp`):
 
 | Key | Default | Effect |
 | --- | --- | --- |
-| `loginUrl` | _(empty)_ | When set, `MfaTotpLoginLogoutProvider` makes Jahia redirect unauthenticated users to this page instead of `/cms/login` — point it at the page that renders the `totpui:authentication` login UI (e.g. `/sites/mySite/login.html`). Empty = default Jahia login. |
-| `logoutUrl` | _(empty)_ | Optional custom sign-out page. Empty = default Jahia logout. |
+| `loginUrl` | _(empty)_ | **Global default** login URL. When resolved, `MfaTotpLoginLogoutProvider` makes Jahia redirect unauthenticated users to this page instead of `/cms/login` — point it at the page that renders the `totpui:authentication` login UI (e.g. `/sites/mySite/login.html`). |
+| `logoutUrl` | _(empty)_ | **Global default** custom sign-out page. |
 | `secret.encryption.key` | _(empty)_ | Base64 256-bit AES key for encrypting TOTP secrets at rest. Empty = a key is auto-generated and persisted under `<jahiaVarDir>/mfa-totp-factor/secret.key`. |
 
-`MfaTotpLoginLogoutProvider` implements Jahia's `LoginUrlProvider` / `LogoutUrlProvider` SPI
-and stays inert until `loginUrl` / `logoutUrl` are set, so deploying the module never hijacks
-login on its own. Edits to the `.cfg` are applied live (no restart).
+`MfaTotpLoginLogoutProvider` implements Jahia's `LoginUrlProvider` / `LogoutUrlProvider` SPI.
+URLs are resolved **per request** with this precedence: a **per-site** `loginUrl` / `logoutUrl`
+(set from the site's *Two-factor authentication* administration page, stored on the
+`upaTotp:siteSettings` mixin) → the **global** `.cfg` value above → Jahia's default. When nothing
+is configured for a site the provider returns nothing, so deploying the module never hijacks
+login on its own. Global `.cfg` edits are applied live (no restart); per-site values take effect
+immediately on save.
 
 Tunable security constants (`DRIFT_WINDOWS`, `TIME_STEP_SECONDS`, `DIGITS`, PBKDF2
 iterations, ...) live in `TotpService` and `BackupCodes`. To change them, fork and rebuild.
