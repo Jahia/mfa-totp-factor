@@ -35,9 +35,22 @@ to all callers (the actual authentication / rate limiting happens at the resolve
 
 - `factor/src/main/resources/META-INF/configurations/org.jahia.bundles.api.authorization-mfa-totp-factor.yml`
 
-There is no other OSGi/Karaf configuration to set. Tunable security constants
-(`DRIFT_WINDOWS`, `TIME_STEP_SECONDS`, `DIGITS`, PBKDF2 iterations, ...) live in
-`TotpService` and `BackupCodes`. To change them, fork and rebuild.
+It also ships an editable Karaf configuration (PID `org.jahia.modules.totp`):
+
+- `factor/src/main/resources/META-INF/configurations/org.jahia.modules.totp.cfg`
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `loginUrl` | _(empty)_ | When set, `MfaTotpLoginLogoutProvider` makes Jahia redirect unauthenticated users to this page instead of `/cms/login` — point it at the page that renders the `totpui:authentication` login UI (e.g. `/sites/mySite/login.html`). Empty = default Jahia login. |
+| `logoutUrl` | _(empty)_ | Optional custom sign-out page. Empty = default Jahia logout. |
+| `secret.encryption.key` | _(empty)_ | Base64 256-bit AES key for encrypting TOTP secrets at rest. Empty = a key is auto-generated and persisted under `<jahiaVarDir>/mfa-totp-factor/secret.key`. |
+
+`MfaTotpLoginLogoutProvider` implements Jahia's `LoginUrlProvider` / `LogoutUrlProvider` SPI
+and stays inert until `loginUrl` / `logoutUrl` are set, so deploying the module never hijacks
+login on its own. Edits to the `.cfg` are applied live (no restart).
+
+Tunable security constants (`DRIFT_WINDOWS`, `TIME_STEP_SECONDS`, `DIGITS`, PBKDF2
+iterations, ...) live in `TotpService` and `BackupCodes`. To change them, fork and rebuild.
 
 ## GraphQL API
 
