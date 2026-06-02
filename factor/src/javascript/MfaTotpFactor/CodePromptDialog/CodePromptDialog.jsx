@@ -21,7 +21,14 @@ const CodePromptDialog = ({
     }
 
     return (
-        <Modal isOpen={isOpen} size="small" onOpenChange={open => { if (!open) { onCancel(); } }}>
+        <Modal isOpen={isOpen}
+               size="small"
+               onOpenChange={open => {
+ if (!open) {
+ onCancel();
+}
+}}
+        >
             <div>
                 <ModalHeader title={title}/>
                 <ModalBody>
@@ -34,7 +41,8 @@ const CodePromptDialog = ({
                            onChange={e => setCode(e.target.value.replace(/[^A-Za-z0-9-]/g, ''))}/>
                     {errorKey && (
                         <Typography style={{marginTop: 12, color: '#c00', display: 'block'}}
-                                    data-testid="code-prompt-error">
+                                    data-testid="code-prompt-error"
+                        >
                             {t(errorKey)}
                         </Typography>
                     )}

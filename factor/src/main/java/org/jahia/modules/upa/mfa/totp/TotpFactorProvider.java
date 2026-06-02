@@ -45,6 +45,7 @@ public class TotpFactorProvider implements MfaFactorProvider {
     private TotpUserStore userStore;
     private BackupCodes backupCodes;
     private TotpSiteSettingsStore siteSettingsStore;
+    private TotpAuditLog auditLog;
 
     @Reference
     public void setTotpService(TotpService totpService) { this.totpService = totpService; }
@@ -57,6 +58,9 @@ public class TotpFactorProvider implements MfaFactorProvider {
 
     @Reference
     public void setSiteSettingsStore(TotpSiteSettingsStore siteSettingsStore) { this.siteSettingsStore = siteSettingsStore; }
+
+    @Reference
+    public void setAuditLog(TotpAuditLog auditLog) { this.auditLog = auditLog; }
 
     @Override
     public String getFactorType() {
@@ -88,17 +92,16 @@ public class TotpFactorProvider implements MfaFactorProvider {
                 logger.debug("TOTP skipped for user {} (site '{}' has TOTP disabled)", userId, siteKey);
                 return new TotpPreparationResult(true);
             }
-            if (!isEnrolled(userId)) {
-                // Enabled but the user has not enrolled:
-                //   - enforced=true  → block the login; the UI redirects to enrollment.
-                //   - enforced=false → skip the factor; the user signs in without TOTP.
-                if (siteSettings.isEnforced()) {
-                    throw new MfaException(ERROR_ENROLLMENT_REQUIRED, "user", userId);
-                }
-                logger.debug("TOTP skipped for user {} (not enrolled, site '{}' not enforcing)", userId, siteKey);
+            // Per-group scoping: if the site restricts the policy to specific groups and the
+            // user is not a member of any of them, the factor does not apply to this user.
+            if (!isInScope(userId, siteSettings.getEnabledGroups())) {
+                logger.debug("TOTP skipped for user {} (not in any policy group on site '{}')", userId, siteKey);
                 return new TotpPreparationResult(true);
             }
-            // Enabled + enrolled → standard flow.
+            if (!isEnrolled(userId)) {
+                return prepareUnenrolled(userId, siteKey, siteSettings);
+            }
+            // Enabled + in scope + enrolled → standard flow.
             return new TotpPreparationResult();
         }
 
@@ -107,6 +110,55 @@ public class TotpFactorProvider implements MfaFactorProvider {
             throw new MfaException(ERROR_NOT_ENROLLED, "user", userId);
         }
         return new TotpPreparationResult();
+    }
+
+    /**
+     * Decide what to do when the site has TOTP enabled (and the user is in scope) but the
+     * user has not enrolled:
+     * <ul>
+     *   <li>not enforced → skip the factor; the user signs in without TOTP;</li>
+     *   <li>enforced with no grace ({@code graceDays == 0}) → block immediately;</li>
+     *   <li>enforced with a grace window → allow sign-in until the window elapses, after
+     *       which the login is blocked and the UI redirects to enrollment.</li>
+     * </ul>
+     */
+    private Serializable prepareUnenrolled(String userId, String siteKey,
+                                           TotpSiteSettingsStore.TotpSiteSettings siteSettings)
+            throws MfaException {
+        if (!siteSettings.isEnforced()) {
+            logger.debug("TOTP skipped for user {} (not enrolled, site not enforcing)", userId);
+            return new TotpPreparationResult(true);
+        }
+        long graceDays = siteSettings.getGraceDays();
+        if (graceDays <= 0) {
+            auditLog.record("enrollmentRequired", "denied", userId, siteKey, "noGrace");
+            throw new MfaException(ERROR_ENROLLMENT_REQUIRED, "user", userId);
+        }
+        long now = System.currentTimeMillis();
+        long graceStart;
+        try {
+            graceStart = userStore.getOrStartGraceMillis(userId, now);
+        } catch (RepositoryException e) {
+            logger.warn("Failed to read TOTP grace state for user {}: {}", userId, e.getMessage());
+            throw new MfaException(ERROR_INTERNAL);
+        }
+        long graceMillis = graceDays * 24L * 60L * 60L * 1000L;
+        if ((now - graceStart) < graceMillis) {
+            logger.debug("TOTP enrollment grace still active for user {} (started {}, {} days)",
+                    userId, graceStart, graceDays);
+            return new TotpPreparationResult(true);
+        }
+        auditLog.record("enrollmentRequired", "denied", userId, siteKey, "graceExpired");
+        throw new MfaException(ERROR_ENROLLMENT_REQUIRED, "user", userId);
+    }
+
+    private boolean isInScope(String userId, java.util.List<String> enabledGroups) throws MfaException {
+        try {
+            return userStore.isMemberOfAnyGroup(userId, enabledGroups);
+        } catch (RepositoryException e) {
+            logger.warn("Failed to check group membership for user {}: {}", userId, e.getMessage());
+            throw new MfaException(ERROR_INTERNAL);
+        }
     }
 
     /**
@@ -153,10 +205,14 @@ public class TotpFactorProvider implements MfaFactorProvider {
             throw new MfaException(ERROR_NOT_ENROLLED, "user", userId);
         }
 
-        if (BackupCodes.looksLikeBackupCode(submitted)) {
-            return verifyBackupCode(userId, settings.getBackupCodeHashes(), submitted);
-        }
-        return verifyTotpCode(userId, settings, submitted);
+        boolean backupCode = BackupCodes.looksLikeBackupCode(submitted);
+        boolean ok = backupCode
+                ? verifyBackupCode(userId, settings.getBackupCodeHashes(), submitted)
+                : verifyTotpCode(userId, settings, submitted);
+        String siteKey = verificationContext.getSessionContext().getSiteKey();
+        auditLog.record("verify", ok ? "success" : "failure", userId, siteKey,
+                backupCode ? "backupCode" : "totp");
+        return ok;
     }
 
     private boolean verifyTotpCode(String userId, TotpUserStore.TotpUserSettings settings, String submitted) {

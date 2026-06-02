@@ -7,6 +7,8 @@ export const SiteSettingsQuery = gql`
                 siteKey
                 enabled
                 enforced
+                graceDays
+                enabledGroups
             }
         }
     }
@@ -17,16 +19,66 @@ export const SetSiteSettingsMutation = gql`
         $siteKey: String!
         $enabled: Boolean!
         $enforced: Boolean!
+        $graceDays: Int
+        $enabledGroups: [String]
     ) {
         upa {
             mfaFactors {
                 totp {
-                    setSiteSettings(siteKey: $siteKey, enabled: $enabled, enforced: $enforced) {
+                    setSiteSettings(
+                        siteKey: $siteKey
+                        enabled: $enabled
+                        enforced: $enforced
+                        graceDays: $graceDays
+                        enabledGroups: $enabledGroups
+                    ) {
                         siteKey
                         enabled
                         enforced
+                        graceDays
+                        enabledGroups
                     }
                 }
+            }
+        }
+    }
+`;
+
+export const ResetUserMfaMutation = gql`
+    mutation MfaTotpResetUser($userId: String!, $siteKey: String!) {
+        upa {
+            mfaFactors {
+                totp {
+                    resetUserMfa(userId: $userId, siteKey: $siteKey)
+                }
+            }
+        }
+    }
+`;
+
+export const AuditEventsQuery = gql`
+    query MfaTotpAuditEvents($siteKey: String!, $limit: Int) {
+        mfaTotp {
+            auditEvents(siteKey: $siteKey, limit: $limit) {
+                eventType
+                outcome
+                userId
+                siteKey
+                timestamp
+                detail
+            }
+        }
+    }
+`;
+
+export const EnrollmentReportQuery = gql`
+    query MfaTotpEnrollmentReport($siteKey: String!, $limit: Int) {
+        mfaTotp {
+            enrollmentReport(siteKey: $siteKey, limit: $limit) {
+                totalUsers
+                enrolledUsers
+                notEnrolled
+                truncated
             }
         }
     }

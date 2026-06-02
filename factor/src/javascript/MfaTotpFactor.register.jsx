@@ -4,7 +4,6 @@ import {Security} from '@jahia/moonstone';
 import MyMfaSettings from './MfaTotpFactor/MyMfaSettings/MyMfaSettings';
 import SiteSettings from './MfaTotpFactor/SiteSettings/SiteSettings';
 
-
 export default function () {
     console.debug('%c mfa-totp-factor: activation in progress', 'color: #006633');
 

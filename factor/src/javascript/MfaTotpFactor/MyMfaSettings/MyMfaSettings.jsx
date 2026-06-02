@@ -20,15 +20,19 @@ const mapError = err => {
     if (msg.indexOf('invalid_code') !== -1) {
         return 'errors.invalidCode';
     }
+
     if (msg.indexOf('locked_out') !== -1) {
         return 'errors.lockedOut';
     }
+
     if (msg.indexOf('already_enrolled') !== -1) {
         return 'errors.alreadyEnrolled';
     }
+
     if (msg.indexOf('not_enrolled') !== -1) {
         return 'errors.notEnrolled';
     }
+
     return 'errors.generic';
 };
 
@@ -92,18 +96,34 @@ const MyMfaSettings = () => {
         enrollMutation({variables: {force: false}});
     };
 
+    const openRegen = () => {
+        setErrorKey(null);
+        setRegenOpen(true);
+    };
+
+    const openDisable = () => {
+        setErrorKey(null);
+        setDisableOpen(true);
+    };
+
+    const closeEnroll = () => {
+        setEnrollOpen(false);
+        setEnrollData(null);
+        setErrorKey(null);
+    };
+
     const mainActions = isEnrolled ? [
         <Button key="regen"
                 size="big"
                 data-testid="regen-backup-btn"
                 label={t('regenerateBackupCodes')}
-                onClick={() => { setErrorKey(null); setRegenOpen(true); }}/>,
+                onClick={openRegen}/>,
         <Button key="disable"
                 size="big"
                 color="danger"
                 data-testid="disable-mfa-btn"
                 label={t('disable')}
-                onClick={() => { setErrorKey(null); setDisableOpen(true); }}/>
+                onClick={openDisable}/>
     ] : [
         <Button key="enable"
                 size="big"
@@ -134,13 +154,14 @@ const MyMfaSettings = () => {
                                       label={isEnrolled ? t('enabled') : t('disabled')}/>
                             </Typography>
                             <Typography style={{marginTop: 16, maxWidth: 720, display: 'block'}}>
-                                {isEnrolled
-                                    ? t('descriptionEnabled', {count: (status && status.remainingBackupCodes) || 0})
-                                    : t('descriptionDisabled')}
+                                {isEnrolled ?
+                                    t('descriptionEnabled', {count: (status && status.remainingBackupCodes) || 0}) :
+                                    t('descriptionDisabled')}
                             </Typography>
                             {errorKey && (
                                 <Typography style={{marginTop: 16, color: '#c00', display: 'block'}}
-                                            data-testid="mfa-error">
+                                            data-testid="mfa-error"
+                                >
                                     {t(errorKey)}
                                 </Typography>
                             )}
@@ -151,9 +172,9 @@ const MyMfaSettings = () => {
                         isOpen={enrollOpen}
                         enrollData={enrollData}
                         isLoading={confirmLoading}
-                        onCancel={() => { setEnrollOpen(false); setEnrollData(null); setErrorKey(null); }}
-                        onConfirm={code => confirmMutation({variables: {code}})}
                         errorKey={errorKey}
+                        onCancel={closeEnroll}
+                        onConfirm={code => confirmMutation({variables: {code}})}
                     />
 
                     <CodePromptDialog

@@ -1,13 +1,44 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<nt = 'http://www.jcp.org/jcr/nt/1.0'>
 <upaTotp = 'http://www.jahia.org/jahia/user-password-authentication/totp/nt/1.0'>
 
+// Per-user TOTP enrollment. `secret` holds the AES-GCM-encrypted shared secret
+// (see TotpSecretCipher); legacy plaintext values are tolerated and re-encrypted on write.
 [upaTotp:userSettings] mixin
  - upaTotp:secret (string) protected
  - upaTotp:enrolled (boolean) = false autocreated
  - upaTotp:lastUsedCounter (long) = '0' autocreated protected
  - upaTotp:backupCodes (string) protected multiple
 
+// Per-user online-brute-force lockout state for the management surface (cluster-safe:
+// persisted in shared JCR rather than an in-heap map). Applied independently of enrollment.
+[upaTotp:lockout] mixin
+ - upaTotp:failedAttempts (long) = '0' autocreated protected
+ - upaTotp:windowStart (long) = '0' autocreated protected
+
+// Per-user grace-period tracking: when an enforcing site first prompts an unenrolled
+// user, we stamp graceStartedAt; enforcement kicks in once the grace window elapses.
+[upaTotp:graceTracking] mixin
+ - upaTotp:graceStartedAt (long) = '0' autocreated protected
+
+// Per-site policy. `enabledGroups` (empty = all users) scopes the policy to specific
+// group members. `graceDays` (0 = immediate) defers enforcement for newly-prompted users.
 [upaTotp:siteSettings] mixin
  - upaTotp:enabled (boolean) = false autocreated
  - upaTotp:enforced (boolean) = false autocreated
+ - upaTotp:graceDays (long) = '0' autocreated
+ - upaTotp:enabledGroups (string) multiple
+
+// A single audit event. Stored as children of an upaTotp:auditLog folder (see TotpAuditLog).
+[upaTotp:auditEvent] > nt:base, mix:created
+ - upaTotp:eventType (string) protected
+ - upaTotp:outcome (string) protected
+ - upaTotp:userId (string) protected
+ - upaTotp:siteKey (string) protected
+ - upaTotp:timestamp (long) protected
+ - upaTotp:detail (string) protected
+
+// Folder holding audit events (created lazily under the module's audit root).
+[upaTotp:auditLog] > nt:base, mix:created
+ + * (upaTotp:auditEvent) = upaTotp:auditEvent

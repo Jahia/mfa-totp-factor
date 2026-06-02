@@ -19,7 +19,14 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
     }
 
     return (
-        <Modal isOpen={isOpen} size="medium" onOpenChange={open => { if (!open) { onCancel(); } }}>
+        <Modal isOpen={isOpen}
+               size="medium"
+               onOpenChange={open => {
+ if (!open) {
+ onCancel();
+}
+}}
+        >
             <div>
                 <ModalHeader title={t('enrollDialog.title')}/>
                 <ModalBody>
@@ -34,7 +41,8 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
                                     textAlign: 'center',
                                     fontFamily: 'monospace',
                                     wordBreak: 'break-all'
-                                }}>
+                                }}
+                    >
                         {enrollData.secret}
                     </Typography>
                     <Typography style={{marginTop: 16, display: 'block'}}>{t('enrollDialog.step2')}</Typography>
@@ -46,7 +54,8 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
                            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}/>
                     {errorKey && (
                         <Typography style={{marginTop: 12, color: '#c00', display: 'block'}}
-                                    data-testid="enroll-error">
+                                    data-testid="enroll-error"
+                        >
                             {t(errorKey)}
                         </Typography>
                     )}

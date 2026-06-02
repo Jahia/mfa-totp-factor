@@ -23,7 +23,14 @@ const BackupCodesDialog = ({isOpen, codes, onClose}) => {
     }
 
     return (
-        <Modal isOpen={isOpen} size="small" onOpenChange={open => { if (!open) { onClose(); } }}>
+        <Modal isOpen={isOpen}
+               size="small"
+               onOpenChange={open => {
+ if (!open) {
+ onClose();
+}
+}}
+        >
             <div>
                 <ModalHeader title={t('backupCodesDialog.title')}/>
                 <ModalBody>
@@ -37,7 +44,8 @@ const BackupCodesDialog = ({isOpen, codes, onClose}) => {
                              padding: 12,
                              borderRadius: 4,
                              margin: 0
-                         }}>
+                         }}
+                    >
                         {codes.join('\n')}
                     </pre>
                 </ModalBody>

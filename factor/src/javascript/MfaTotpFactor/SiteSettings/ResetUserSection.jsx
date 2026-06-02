@@ -1,0 +1,71 @@
+import React, {useState} from 'react';
+import {useTranslation} from 'react-i18next';
+import {useMutation} from '@apollo/client';
+import {Button, Typography} from '@jahia/moonstone';
+import {ResetUserMfaMutation} from './SiteSettings.gql';
+import {mapAdminError} from './siteSettings.util';
+
+/**
+ * Admin recovery: clear a user's TOTP enrollment when they have lost their device AND their
+ * backup codes. Distinct from self-service disable (which requires the user's own code).
+ */
+const ResetUserSection = ({siteKey}) => {
+    const {t} = useTranslation('mfa-totp-factor');
+    const [userId, setUserId] = useState('');
+    const [done, setDone] = useState(false);
+    const [errorKey, setErrorKey] = useState(null);
+
+    const [resetMutation, {loading}] = useMutation(ResetUserMfaMutation, {
+        onCompleted: () => {
+            setDone(true);
+            setErrorKey(null);
+            setUserId('');
+        },
+        onError: err => {
+            setDone(false);
+            setErrorKey(mapAdminError(err));
+        }
+    });
+
+    const reset = () => {
+        setDone(false);
+        setErrorKey(null);
+        resetMutation({variables: {userId: userId.trim(), siteKey}});
+    };
+
+    return (
+        <section data-testid="reset-user-section">
+            <Typography variant="heading" style={{display: 'block', marginBottom: 8}}>
+                {t('siteSettings.reset.title')}
+            </Typography>
+            <Typography variant="caption" style={{display: 'block', color: '#555', marginBottom: 12}}>
+                {t('siteSettings.reset.help')}
+            </Typography>
+            <div style={{display: 'flex', gap: 12, alignItems: 'center'}}>
+                <input type="text"
+                       value={userId}
+                       placeholder={t('siteSettings.reset.placeholder')}
+                       data-testid="reset-user-input"
+                       style={{padding: '0.4rem', minWidth: 240, borderRadius: 4, border: '1px solid #ccc'}}
+                       onChange={e => setUserId(e.target.value)}/>
+                <Button color="danger"
+                        data-testid="reset-user-btn"
+                        isDisabled={loading || userId.trim() === ''}
+                        label={t('siteSettings.reset.button')}
+                        onClick={reset}/>
+            </div>
+            {done && (
+                <Typography style={{color: '#080', display: 'block', marginTop: 12}} data-testid="reset-user-done">
+                    {t('siteSettings.reset.done')}
+                </Typography>
+            )}
+            {errorKey && (
+                <Typography style={{color: '#c00', display: 'block', marginTop: 12}} data-testid="reset-user-error">
+                    {t(errorKey)}
+                </Typography>
+            )}
+        </section>
+    );
+};
+
+export default ResetUserSection;

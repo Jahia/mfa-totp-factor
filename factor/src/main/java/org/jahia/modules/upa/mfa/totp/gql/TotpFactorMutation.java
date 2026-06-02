@@ -13,12 +13,12 @@ import org.jahia.modules.upa.mfa.MfaService;
 import org.jahia.modules.upa.mfa.MfaSession;
 import org.jahia.modules.upa.mfa.gql.Result;
 import org.jahia.modules.upa.mfa.totp.BackupCodes;
+import org.jahia.modules.upa.mfa.totp.TotpAuditLog;
 import org.jahia.modules.upa.mfa.totp.TotpEnrollmentState;
 import org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter;
 import org.jahia.modules.upa.mfa.totp.TotpService;
 import org.jahia.modules.upa.mfa.totp.TotpSiteSettingsStore;
 import org.jahia.modules.upa.mfa.totp.TotpUserStore;
-import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.usermanager.JahiaUser;
@@ -61,8 +61,6 @@ public class TotpFactorMutation {
     private static final String ERROR_INTERNAL = "factor.totp.internal_error";
     private static final String ERROR_LOCKED_OUT = "factor.totp.locked_out";
     private static final String ERROR_FORCE_NOT_ALLOWED = "factor.totp.force_not_allowed";
-    private static final String ERROR_PERMISSION_DENIED = "factor.totp.permission_denied";
-    private static final String SITE_ADMIN_PERMISSION = "siteAdminAccess";
 
     /** HTTP session attribute used to persist self-service enrollment state when no MFA session exists. */
     private static final String SELF_SERVICE_STATE_ATTR = "upa.mfa.totp.selfService.enrollState";
@@ -73,6 +71,7 @@ public class TotpFactorMutation {
     private BackupCodes backupCodes;
     private TotpManagementRateLimiter rateLimiter;
     private TotpSiteSettingsStore siteSettingsStore;
+    private TotpAuditLog auditLog;
 
     @Inject
     @GraphQLOsgiService
@@ -108,6 +107,12 @@ public class TotpFactorMutation {
     @GraphQLOsgiService
     public void setSiteSettingsStore(TotpSiteSettingsStore siteSettingsStore) {
         this.siteSettingsStore = siteSettingsStore;
+    }
+
+    @Inject
+    @GraphQLOsgiService
+    public void setAuditLog(TotpAuditLog auditLog) {
+        this.auditLog = auditLog;
     }
 
     @GraphQLField
@@ -273,6 +278,8 @@ public class TotpFactorMutation {
             // SINGLE JCR transaction: persists the secret, enrolled flag, hashed backup codes
             // AND the matched counter so the enrollment code cannot be replayed at login.
             userStore.saveEnrollment(userId, secretBase32, hashed, matched.get());
+            // Enrollment satisfied — clear any running grace window.
+            userStore.clearGrace(userId);
         } catch (RepositoryException e) {
             logger.warn("Failed to persist TOTP enrollment for user {}: {}", userId, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);
@@ -286,6 +293,7 @@ public class TotpFactorMutation {
         rateLimiter.recordSuccess(userId);
 
         MfaSession responseSession = (session != null) ? session : mfaService.createNoSessionError();
+        auditLog.record("confirmEnroll", "success", userId, auditSiteKey(responseSession), null);
         logger.info("TOTP enrollment confirmed for user {}", userId);
         return new TotpConfirmEnrollResult(responseSession, plaintextBackup);
     }
@@ -363,6 +371,7 @@ public class TotpFactorMutation {
         }
         rateLimiter.recordSuccess(userId);
         MfaSession session = mfaService.getMfaSession(request);
+        auditLog.record("regenerateBackupCodes", "success", userId, auditSiteKey(session), null);
         logger.info("Backup codes regenerated for user {}", userId);
         return new TotpBackupCodesResult(session, plaintext);
     }
@@ -415,6 +424,7 @@ public class TotpFactorMutation {
         if (session == null) {
             session = mfaService.createNoSessionError();
         }
+        auditLog.record("disable", "success", userId, auditSiteKey(session), null);
         logger.info("TOTP disabled for user {}", userId);
         return new Result(session);
     }
@@ -473,36 +483,69 @@ public class TotpFactorMutation {
 
     @GraphQLField
     @GraphQLName("setSiteSettings")
-    @GraphQLDescription("Set the per-site TOTP settings (enabled / enforced). Caller must be a site administrator on the target site.")
+    @GraphQLDescription("Set the per-site TOTP policy (enabled / enforced / graceDays / enabledGroups). "
+            + "Caller must be a site administrator on the target site.")
     public TotpSiteSettingsResult setSiteSettings(
             @GraphQLName("siteKey") @GraphQLNonNull String siteKey,
             @GraphQLName("enabled") @GraphQLNonNull Boolean enabled,
-            @GraphQLName("enforced") @GraphQLNonNull Boolean enforced) {
+            @GraphQLName("enforced") @GraphQLNonNull Boolean enforced,
+            @GraphQLName("graceDays") Integer graceDays,
+            @GraphQLName("enabledGroups") List<String> enabledGroups) {
 
         if (StringUtils.isBlank(siteKey)) {
             throw new DataFetchingException("siteKey must not be blank");
         }
-        JahiaUser user = JCRSessionFactory.getInstance().getCurrentUser();
-        if (user == null) {
-            throw new DataFetchingException(ERROR_NOT_AUTHENTICATED);
-        }
+        JCRSessionWrapper session = TotpAdminAccess.requireSiteAdmin(siteKey);
+        long grace = graceDays == null ? 0L : graceDays;
         try {
-            // Use the caller's session — JCR ACLs will reject the write if the user
-            // lacks write access on the site node anyway. The hasPermission check
-            // above is a friendlier upfront gate.
-            JCRSessionWrapper session = JCRSessionFactory.getInstance().getCurrentUserSession();
-            JCRNodeWrapper siteNode = session.getNode("/sites/" + siteKey);
-            if (!user.isRoot() && !siteNode.hasPermission(SITE_ADMIN_PERMISSION)) {
-                logger.warn("User {} attempted setSiteSettings on {} without siteAdminAccess",
-                        user.getName(), siteKey);
-                throw new DataFetchingException(ERROR_PERMISSION_DENIED);
-            }
-            siteSettingsStore.save(session, siteKey, enabled, enforced);
-            return new TotpSiteSettingsResult(siteKey, enabled, enforced);
+            siteSettingsStore.save(session, siteKey, enabled, enforced, grace, enabledGroups);
+            auditLog.record("setSiteSettings", "success", currentUserName(), siteKey,
+                    "enabled=" + enabled + ", enforced=" + enforced + ", graceDays=" + grace);
+            return new TotpSiteSettingsResult(siteKey, enabled, enforced, grace, enabledGroups);
         } catch (RepositoryException e) {
             logger.warn("Failed to save TOTP site settings for {}: {}", siteKey, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);
         }
+    }
+
+    @GraphQLField
+    @GraphQLName("resetUserMfa")
+    @GraphQLDescription("Admin recovery: clear a user's TOTP enrollment (secret + backup codes) WITHOUT "
+            + "requiring their code, for users who lost their device and backup codes. Caller must be a "
+            + "site administrator on the given site.")
+    public boolean resetUserMfa(
+            @GraphQLName("userId") @GraphQLNonNull String userId,
+            @GraphQLName("siteKey") @GraphQLNonNull String siteKey) {
+
+        if (StringUtils.isBlank(userId)) {
+            throw new DataFetchingException("userId must not be blank");
+        }
+        TotpAdminAccess.requireSiteAdmin(siteKey);
+        try {
+            userStore.disable(userId);
+            userStore.clearGrace(userId);
+            rateLimiter.recordSuccess(userId); // clear any lockout state too
+            auditLog.record("reset", "success", userId, siteKey, "by=" + currentUserName());
+            logger.info("TOTP enrollment reset for user {} by admin {}", userId, currentUserName());
+            return true;
+        } catch (RepositoryException e) {
+            logger.warn("Failed to reset TOTP for user {}: {}", userId, e.getMessage());
+            throw new DataFetchingException(ERROR_INTERNAL);
+        }
+    }
+
+    private static String currentUserName() {
+        JahiaUser u = JCRSessionFactory.getInstance().getCurrentUser();
+        return u == null ? "<anonymous>" : u.getName();
+    }
+
+    /** Best-effort site key for auditing a self-service event (empty when outside a site flow). */
+    private static String auditSiteKey(MfaSession session) {
+        if (session != null && session.getContext() != null
+                && StringUtils.isNotBlank(session.getContext().getSiteKey())) {
+            return session.getContext().getSiteKey();
+        }
+        return "";
     }
 
     private static boolean isAcceptableCodeLength(String code) {

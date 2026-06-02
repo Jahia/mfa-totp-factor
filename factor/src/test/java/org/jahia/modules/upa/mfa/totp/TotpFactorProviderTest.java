@@ -39,6 +39,14 @@ public class TotpFactorProviderTest {
         provider.setTotpService(totpService);
         provider.setUserStore(userStore);
         provider.setBackupCodes(new BackupCodes());
+        // No-op audit log: verify() records an event, but auditing must never affect the
+        // verification outcome and the real (JCR-backed) log is not available in a unit test.
+        provider.setAuditLog(new TotpAuditLog() {
+            @Override
+            public void record(String eventType, String outcome, String userId, String siteKey, String detail) {
+                // no-op
+            }
+        });
     }
 
     @Test

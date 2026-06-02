@@ -52,7 +52,34 @@
     },
     "enforced": {
       "label": "Enforce enrollment",
-      "help": "When on, users who have not yet enrolled in TOTP are redirected to the enrollment page at login and cannot complete sign-in until they enrol."
+      "help": "When on, users who have not yet enrolled in TOTP are redirected to the enrollment page at login (subject to the grace period) and cannot complete sign-in until they enrol."
+    },
+    "graceDays": {
+      "label": "Grace period (days)",
+      "help": "When enforcing, the number of days a newly-prompted user may still sign in before enrollment becomes mandatory. 0 = immediate."
+    },
+    "groups": {
+      "label": "Restrict to groups (optional)",
+      "help": "Comma-separated group names. If set, the policy applies only to members of these groups (e.g. editors). Leave empty to apply to all users of the site."
+    },
+    "reset": {
+      "title": "Reset a user's MFA",
+      "help": "Clear a user's TOTP enrollment when they have lost both their device and their backup codes. The user will be able to enrol again at next login.",
+      "placeholder": "username",
+      "button": "Reset MFA",
+      "done": "The user's TOTP enrollment has been reset."
+    },
+    "audit": {
+      "title": "Audit & reporting",
+      "loadEvents": "Load recent events",
+      "loadReport": "Enrollment report",
+      "reportSummary": "{{enrolled}} of {{total}} users are enrolled in TOTP.",
+      "notEnrolled": "Not enrolled",
+      "colTime": "Time (UTC)",
+      "colEvent": "Event",
+      "colOutcome": "Outcome",
+      "colUser": "User",
+      "colDetail": "Detail"
     },
     "errors": {
       "permissionDenied": "You don't have permission to change these settings.",
