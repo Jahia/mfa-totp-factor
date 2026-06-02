@@ -35,6 +35,11 @@ final class TotpAdminAccess {
         }
         try {
             JCRSessionWrapper session = JCRSessionFactory.getInstance().getCurrentUserSession();
+            // nodeExists() returns false both when the site is missing and when the caller
+            // cannot see it — for a non-root user the latter means "not a site admin".
+            if (!session.nodeExists("/sites/" + siteKey)) {
+                throw new DataFetchingException(user.isRoot() ? ERROR_INTERNAL : ERROR_PERMISSION_DENIED);
+            }
             JCRNodeWrapper siteNode = session.getNode("/sites/" + siteKey);
             if (!user.isRoot() && !siteNode.hasPermission(SITE_ADMIN_PERMISSION)) {
                 throw new DataFetchingException(ERROR_PERMISSION_DENIED);
