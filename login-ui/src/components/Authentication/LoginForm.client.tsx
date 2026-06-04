@@ -7,6 +7,7 @@ import type { Props } from "./types";
 import { convertErrorArgsToInterpolation } from "../../services/i18n";
 import type { MfaError } from "../../services/common";
 import { useTranslation } from "react-i18next";
+import { submitOnEnter } from "./formKeyboard";
 
 function extractSiteKeyFromUrl(): string | undefined {
   const url = globalThis.location.pathname;
@@ -32,8 +33,8 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
   const apiRoot = useApiRoot();
   const { t } = useTranslation();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const submit = () => {
+    if (inProgress) return;
     setInProgress(true);
 
     const site = extractSiteKeyFromUrl();
@@ -58,6 +59,11 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
       .finally(() => setInProgress(false));
   };
 
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submit();
+  };
+
   return (
     <>
       <form onSubmit={handleSubmit}>
@@ -70,6 +76,7 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
             autoComplete="username"
             data-testid="login-username"
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={submitOnEnter(submit)}
           />
         </div>
         <div className={classes.formField}>
@@ -81,6 +88,7 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
             autoComplete="current-password"
             data-testid="login-password"
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={submitOnEnter(submit)}
           />
         </div>
         {props.content.loginBelowPasswordFieldHtml && (

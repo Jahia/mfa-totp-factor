@@ -7,6 +7,7 @@ import type { Props } from "./types";
 import { convertErrorArgsToInterpolation } from "../../services/i18n";
 import { Trans, useTranslation } from "react-i18next";
 import type { MfaError } from "../../services/common";
+import { submitOnEnter } from "./formKeyboard";
 
 interface TotpCodeVerificationFormProps {
   content: Props;
@@ -83,9 +84,8 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
     ? code.length >= BACKUP_CODE_MIN_LENGTH
     : code.length === TOTP_CODE_LENGTH;
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!isCodeValid) return;
+  const submit = () => {
+    if (!isCodeValid || submitting) return;
     setSubmitting(true);
     verifyTotpFactor(apiRoot, code)
       .then((result) => {
@@ -100,6 +100,11 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
         }
       })
       .finally(() => setSubmitting(false));
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submit();
   };
 
   return (
@@ -130,6 +135,7 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
             placeholder={useBackupCode ? "ABCD-1234" : "123456"}
             value={code}
             onChange={handleCodeInputChange}
+            onKeyDown={submitOnEnter(submit)}
             aria-label="Enter authenticator code"
             data-testid={useBackupCode ? "verification-backup-code" : "verification-code"}
             className={useBackupCode ? classes.backupCodeInput : classes.otpInput}

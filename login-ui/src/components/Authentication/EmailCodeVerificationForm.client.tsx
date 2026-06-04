@@ -6,6 +6,7 @@ import ErrorMessage from "./ErrorMessage.client";
 import { convertErrorArgsToInterpolation } from "../../services/i18n";
 import { Trans, useTranslation } from "react-i18next";
 import type { MfaError } from "../../services/common";
+import { submitOnEnter } from "./formKeyboard";
 
 interface EmailCodeVerificationFormProps {
   onSuccess: () => void;
@@ -61,9 +62,8 @@ export default function EmailCodeVerificationForm(
     setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (code.length !== CODE_LENGTH) return;
+  const submit = () => {
+    if (code.length !== CODE_LENGTH || submitting) return;
     setSubmitting(true);
     verifyEmailCodeFactor(apiRoot, code)
       .then((result) => {
@@ -78,6 +78,11 @@ export default function EmailCodeVerificationForm(
         }
       })
       .finally(() => setSubmitting(false));
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submit();
   };
 
   return (
@@ -106,6 +111,7 @@ export default function EmailCodeVerificationForm(
             placeholder="123456"
             value={code}
             onChange={handleCodeChange}
+            onKeyDown={submitOnEnter(submit)}
             aria-label="Enter email verification code"
             data-testid="email-verification-code"
             className={classes.otpInput}
