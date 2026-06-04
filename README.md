@@ -43,6 +43,8 @@ It also ships an editable Karaf configuration (PID `org.jahia.modules.totp`):
 | --- | --- | --- |
 | `loginUrl` | _(empty)_ | **Global default** login URL. When resolved, `MfaTotpLoginLogoutProvider` makes Jahia redirect unauthenticated users to this page instead of `/cms/login` — point it at the page that renders the `totpui:authentication` login UI (e.g. `/sites/mySite/login.html`). |
 | `logoutUrl` | _(empty)_ | **Global default** custom sign-out page. |
+| `loginGate.enabled` | `false` | Master switch for the `/cms/login` gate (see below). |
+| `loginGate.ipWhitelist` | _(empty)_ | Comma-separated IPv4/IPv6 addresses or CIDR blocks allowed through the gate (e.g. `203.0.113.7, 10.0.0.0/8, 2001:db8::/32`). |
 | `secret.encryption.key` | _(empty)_ | Base64 256-bit AES key for encrypting TOTP secrets at rest. Empty = a key is auto-generated and persisted under `<jahiaVarDir>/mfa-totp-factor/secret.key`. |
 
 `MfaTotpLoginLogoutProvider` implements Jahia's `LoginUrlProvider` / `LogoutUrlProvider` SPI.
@@ -62,6 +64,27 @@ trust level) and are not restricted, so an external SSO portal remains possible 
 
 The enrollment **grace period** is bounded to **0–365 days** (an unbounded value would
 silently disable enforcement forever).
+
+### The `/cms/login` gate
+
+Jahia's legacy `/cms/login` endpoint authenticates with username/password only — it never
+consults MFA factors. On a site that **enforces** TOTP enrollment it is therefore a complete
+second-factor bypass. `TotpLoginGateFilter` (a Jahia `AbstractServletFilter` running before
+the authentication valve, so blocked requests never get a session) closes it:
+
+- requests carrying a site context (`?site=<key>` parameter or the `siteKey` request
+  attribute) are gated when **that site** has TOTP enabled + enforced;
+- requests with no site context — the common case — are gated when **any** site enforces
+  enrollment (`/cms/login` authenticates globally, so one enforcing site is enough);
+- gated requests get **HTTP 403** unless the client IP matches `loginGate.ipWhitelist`,
+  keeping an emergency/back-office door (e.g. your VPN range).
+
+The client IP is the **first `X-Forwarded-For` entry** when present, else the socket
+address. **Security:** `X-Forwarded-For` is client-spoofable — only enable the gate behind a
+reverse proxy that overwrites the header. The gate is **off by default**: enabling it with an
+empty whitelist locks everyone (including platform administrators) out of `/cms/login` as
+soon as one site enforces enrollment — set the whitelist first, then flip
+`loginGate.enabled=true`. JCR errors fail **closed** (request blocked).
 
 Tunable security constants (`DRIFT_WINDOWS`, `TIME_STEP_SECONDS`, `DIGITS`, PBKDF2
 iterations, ...) live in `TotpService` and `BackupCodes`. To change them, fork and rebuild.

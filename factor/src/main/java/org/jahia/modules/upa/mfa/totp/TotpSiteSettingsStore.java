@@ -184,6 +184,22 @@ public class TotpSiteSettingsStore {
     }
 
     /**
+     * Whether at least one site currently has TOTP {@code enabled} AND {@code enforced}.
+     * Used by the {@code /cms/login} gate filter for requests that carry no site context:
+     * if any site enforces enrollment, the legacy login endpoint is a potential MFA bypass.
+     */
+    public boolean isAnySiteEnforcing() throws RepositoryException {
+        return Boolean.TRUE.equals(JCRTemplate.getInstance().doExecuteWithSystemSession(session -> {
+            javax.jcr.query.Query query = session.getWorkspace().getQueryManager().createQuery(
+                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true AND ["
+                            + PROP_ENFORCED + "] = true",
+                    javax.jcr.query.Query.JCR_SQL2);
+            query.setLimit(1);
+            return query.execute().getNodes().hasNext();
+        }));
+    }
+
+    /**
      * Persist the settings via the caller's session (i.e. the authenticated admin's session).
      * The caller MUST have already validated site-administrator access — this method does no
      * permission check of its own. It DOES validate the values: graceDays is clamped to
