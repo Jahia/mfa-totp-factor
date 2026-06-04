@@ -27,7 +27,6 @@ interface LoginFormProps {
 export default function LoginForm(props: Readonly<LoginFormProps>) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [inProgress, setInProgress] = useState(false);
   const apiRoot = useApiRoot();
@@ -39,7 +38,8 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
 
     const site = extractSiteKeyFromUrl();
 
-    initiate(apiRoot, username, password, rememberMe, site)
+    // No "remember me" option: always a session-scoped login (no persistent auth cookie).
+    initiate(apiRoot, username, password, false, site)
       .then((result) => {
         if (result.success) {
           if (result.remainingFactors.length === 0) {
@@ -90,17 +90,6 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
             dangerouslySetInnerHTML={{ __html: props.content.loginBelowPasswordFieldHtml }}
           />
         )}
-        <div className={classes.formField}>
-          <input
-            id="rememberMe"
-            name="rememberMe"
-            type="checkbox"
-            checked={rememberMe}
-            data-testid="login-remember-me"
-            onChange={(e) => setRememberMe(e.target.checked)}
-          />
-          <label htmlFor="rememberMe">{t("login.rememberMe")}</label>
-        </div>
         <ErrorMessage message={error} />
         <button
           type="submit"

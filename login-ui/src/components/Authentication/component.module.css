@@ -17,24 +17,6 @@
   box-sizing: border-box;
 }
 
-.formField input[type="checkbox"] {
-  cursor: pointer;
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.formField:has(input[type="checkbox"]) {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.formField:has(input[type="checkbox"]) label {
-  cursor: pointer;
-  user-select: none;
-  margin: 0;
-  line-height: 1;
-}
 
 .errorMessage {
   min-height: 1.2rem;
