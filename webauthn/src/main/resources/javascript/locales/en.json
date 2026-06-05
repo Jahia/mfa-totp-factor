@@ -1,0 +1,82 @@
+{
+  "title": "Security keys & passkeys (WebAuthn)",
+  "description": "Register a passkey, security key or your device's fingerprint/face unlock as a phishing-resistant second factor. The private key never leaves your authenticator.",
+  "cancel": "Cancel",
+  "list": {
+    "add": "Add a passkey",
+    "empty": "You have no registered authenticators yet. Add one to use it as a second factor at sign-in.",
+    "colName": "Name",
+    "colCreated": "Registered",
+    "colLastUsed": "Last used",
+    "rename": "Rename",
+    "delete": "Remove",
+    "renamePrompt": "New name for this authenticator:",
+    "deleteConfirm": "Remove \"{{nickname}}\"? You will no longer be able to sign in with this authenticator."
+  },
+  "register": {
+    "title": "Register an authenticator",
+    "description": "Your browser will ask you to use a security key, your fingerprint/face, or a saved passkey.",
+    "nicknameLabel": "Name (optional)",
+    "nicknamePlaceholder": "e.g. YubiKey, MacBook Touch ID",
+    "button": "Register",
+    "inProgress": "Waiting for your authenticator…"
+  },
+  "errors": {
+    "unsupported": "This browser does not support WebAuthn. Try a recent version of Chrome, Edge, Firefox or Safari.",
+    "cancelled": "Registration was cancelled or timed out. Please try again.",
+    "failed": "Could not register the authenticator. Please try again."
+  },
+  "siteSettings": {
+    "menuLabel": "Security keys & passkeys (WebAuthn)",
+    "title": "WebAuthn — {{siteKey}}",
+    "description": "Choose whether WebAuthn is active on this site and whether all users must register an authenticator.",
+    "noSite": "No site context available. Open this page from a site's administration panel.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Settings saved.",
+    "enabled": {
+      "label": "Enable WebAuthn on this site",
+      "help": "When on, users who have registered an authenticator are prompted for it at login."
+    },
+    "enforced": {
+      "label": "Enforce registration",
+      "help": "When on, users who have not registered an authenticator are redirected to register at login (subject to the grace period)."
+    },
+    "graceDays": {
+      "label": "Grace period (days)",
+      "help": "When enforcing, the number of days a newly-prompted user may still sign in before registration becomes mandatory. 0 = immediate, maximum 365."
+    },
+    "groups": {
+      "label": "Restrict to groups (optional)",
+      "help": "Comma-separated group names. If set, the policy applies only to members of these groups. Leave empty to apply to all users of the site."
+    },
+    "reset": {
+      "title": "Reset a user's WebAuthn",
+      "help": "Remove all of a user's registered authenticators when they have lost their devices. The user will be able to register again at next login.",
+      "placeholder": "username",
+      "button": "Reset WebAuthn",
+      "confirmText": "This will immediately remove all of {{userId}}'s registered authenticators. They will sign in without a second factor until they re-register. This cannot be undone.",
+      "confirmButton": "Yes, reset this user's WebAuthn",
+      "cancelButton": "Cancel",
+      "done": "The user's WebAuthn authenticators have been removed."
+    },
+    "audit": {
+      "title": "Audit & reporting",
+      "loadEvents": "Load recent events",
+      "loadReport": "Registration report",
+      "reportSummary": "{{registered}} of {{total}} users have registered an authenticator.",
+      "notRegistered": "Not registered",
+      "colTime": "Time (UTC)",
+      "colEvent": "Event",
+      "colOutcome": "Outcome",
+      "colUser": "User",
+      "colDetail": "Detail"
+    },
+    "errors": {
+      "permissionDenied": "You don't have permission to change these settings.",
+      "notAuthenticated": "Please sign in again to change these settings.",
+      "invalidGraceDays": "The grace period must be between 0 and 365 days.",
+      "generic": "Could not save the settings. Please try again."
+    }
+  }
+}
