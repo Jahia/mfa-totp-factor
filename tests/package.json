@@ -1,5 +1,5 @@
 {
-  "name": "user-password-authentication-mfa-totp-factor-cypress",
+  "name": "user-password-authentication-mfa-factors-totp-cypress",
   "version": "1.0.0",
   "description": "Cypress tests for the Jahia UPA TOTP factor module",
   "private": "true",

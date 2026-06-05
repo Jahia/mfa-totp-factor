@@ -7,10 +7,13 @@
 target/
 *.class
 
-# Frontend build output (factor module: Java bundle + dashboard React)
-factor/node_modules/
-factor/node/
-factor/src/main/resources/javascript/apps
+# Frontend build output (factor modules: Java bundle + dashboard React)
+totp/node_modules/
+totp/node/
+totp/src/main/resources/javascript/apps
+webauthn/node_modules/
+webauthn/node/
+webauthn/src/main/resources/javascript/apps
 yarn-error.log
 
 # login-ui (JS-SDK sub-module)

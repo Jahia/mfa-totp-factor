@@ -18,8 +18,8 @@ compliant authenticator.
 ## Installation
 
 1. Build the project (`mvn clean install` at the repo root builds both modules):
-   - `factor/target/mfa-totp-factor-<version>.jar` &mdash; the OSGi factor bundle.
-   - `login-ui/target/mfa-totp-factor-login-ui-<version>.tgz` &mdash; the sign-in UI (optional;
+   - `totp/target/mfa-factors-totp-<version>.jar` &mdash; the OSGi factor bundle.
+   - `login-ui/target/mfa-factors-login-ui-<version>.tgz` &mdash; the sign-in UI (optional;
      install only if you want the bundled login template). The `.tgz` is an npm/JS-SDK
      package and must be installed via the Jahia provisioning API or the Modules UI &mdash;
      it is **not** picked up by the `digital-factory-data/modules/` hot-deploy folder.
@@ -33,11 +33,11 @@ compliant authenticator.
 The module ships a single OSGi authorization configuration that grants the GraphQL types
 to all callers (the actual authentication / rate limiting happens at the resolver level):
 
-- `factor/src/main/resources/META-INF/configurations/org.jahia.bundles.api.authorization-mfa-totp-factor.yml`
+- `totp/src/main/resources/META-INF/configurations/org.jahia.bundles.api.authorization-mfa-factors-totp.yml`
 
 It also ships an editable Karaf configuration (PID `org.jahia.modules.totp`):
 
-- `factor/src/main/resources/META-INF/configurations/org.jahia.modules.totp.cfg`
+- `totp/src/main/resources/META-INF/configurations/org.jahia.modules.totp.cfg`
 
 | Key | Default | Effect |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ It also ships an editable Karaf configuration (PID `org.jahia.modules.totp`):
 | `logoutUrl` | _(empty)_ | **Global default** custom sign-out page. |
 | `loginGate.enabled` | `false` | Master switch for the `/cms/login` gate (see below). |
 | `loginGate.ipWhitelist` | _(empty)_ | Comma-separated IPv4/IPv6 addresses or CIDR blocks allowed through the gate (e.g. `203.0.113.7, 10.0.0.0/8, 2001:db8::/32`). |
-| `secret.encryption.key` | _(empty)_ | Base64 256-bit AES key for encrypting TOTP secrets at rest. Empty = a key is auto-generated and persisted under `<jahiaVarDir>/mfa-totp-factor/secret.key`. |
+| `secret.encryption.key` | _(empty)_ | Base64 256-bit AES key for encrypting TOTP secrets at rest. Empty = a key is auto-generated and persisted under `<jahiaVarDir>/mfa-factors/secret.key`. |
 
 `MfaTotpLoginLogoutProvider` implements Jahia's `LoginUrlProvider` / `LogoutUrlProvider` SPI.
 URLs are resolved **per request** with this precedence: a **per-site** `loginUrl` / `logoutUrl`

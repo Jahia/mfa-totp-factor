@@ -2,7 +2,7 @@
  * GraphQL helpers for the TOTP factor surface.
  *
  * All operations are inlined gql tagged templates targeting the schema described in
- * mfa-totp-factor/src/main/java/.../gql/. The path is:
+ * mfa-factors-totp/src/main/java/.../gql/. The path is:
  *
  *   mutation { upa { mfaFactors { totp { <op> } } } }
  *

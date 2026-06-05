@@ -1,9 +1,9 @@
 /**
  * UI tests for the TOTP MFA dashboard page.
  *
- * Exercises the React UI registered by mfa-totp-factor at adminRoute
- * `mfa-totp-factor` (sidebar target `dashboard:99.2`). The route lives at
- * `/jahia/dashboard/mfa-totp-factor`.
+ * Exercises the React UI registered by mfa-factors-totp at adminRoute
+ * `mfa-factors-totp` (sidebar target `dashboard:99.2`). The route lives at
+ * `/jahia/dashboard/mfa-factors-totp`.
  *
  * Each test runs against a fresh user so enrollment state never bleeds
  * between specs. State is asserted via which action button is visible
@@ -14,7 +14,7 @@
 import {jfaker, deleteUser} from '@jahia/cypress';
 import {createUserForMFA, totpCode} from './utils';
 
-const DASHBOARD_PATH = '/jahia/dashboard/mfa-totp-factor';
+const DASHBOARD_PATH = '/jahia/dashboard/mfa-factors-totp';
 
 describe('TOTP dashboard UI', () => {
     let usr: string;

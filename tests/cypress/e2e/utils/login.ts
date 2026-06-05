@@ -55,7 +55,7 @@ export function getTotpLoginPageURL(siteKey: string): string {
  *
  * Modules enabled on the site:
  *   - user-password-authentication-ui     (provides the template-set scaffolding deps)
- *   - mfa-totp-factor-login-ui            (provides the totpui:authentication view)
+ *   - mfa-factors-login-ui            (provides the totpui:authentication view)
  */
 export function createSiteWithTotpLoginPage(siteKey: string): void {
     deleteSite(siteKey);
@@ -66,7 +66,7 @@ export function createSiteWithTotpLoginPage(siteKey: string): void {
         templateSet: 'user-password-authentication-template-set-test-module',
     });
     enableModule('user-password-authentication-ui', siteKey);
-    enableModule('mfa-totp-factor-login-ui', siteKey);
+    enableModule('mfa-factors-login-ui', siteKey);
 
     addNode({
         parentPathOrId: `/sites/${siteKey}`,

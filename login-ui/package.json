@@ -1,6 +1,6 @@
 {
-  "name": "mfa-totp-factor-login-ui",
-  "description": "Sign-in UI for the TOTP MFA factor — provides a Jahia authentication template that performs username/password + TOTP-code verification.",
+  "name": "mfa-factors-login-ui",
+  "description": "Shared sign-in UI for the MFA factors — a Jahia authentication template that performs username/password then TOTP / WebAuthn / email-code verification.",
   "version": "1.0.0-SNAPSHOT",
   "type": "module",
   "files": [
@@ -33,11 +33,11 @@
     "vite": "^7.0.0"
   },
   "jahia": {
-    "name": "TOTP Login UI",
+    "name": "MFA factors Login UI",
     "maven": {
       "groupId": "org.jahia.community"
     },
-    "module-dependencies": "default,user-password-authentication-api,mfa-totp-factor",
+    "module-dependencies": "default,user-password-authentication-api,mfa-factors-totp",
     "module-type": "module",
     "required-version": "8.2.3.0",
     "server": "dist/server/index.js",

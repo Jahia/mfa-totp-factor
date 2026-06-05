@@ -1,6 +1,6 @@
 # TOTP factor — Cypress test suite
 
-End-to-end tests for the UPA TOTP MFA factor (`user-password-authentication-mfa-totp-factor`).
+End-to-end tests for the UPA TOTP MFA factor (`user-password-authentication-mfa-factors-totp`).
 The suite is fully self-contained and runs against a Jahia instance booted from a Docker
 image with both the UPA bundles and the TOTP module pre-installed.
 
@@ -18,7 +18,7 @@ image with both the UPA bundles and the TOTP module pre-installed.
    ```
    cd ../ && mvn -DskipTests package
    ```
-   Produces `mfa-totp-factor/target/user-password-authentication-mfa-totp-factor-*.jar`.
+   Produces `mfa-factors-totp/target/user-password-authentication-mfa-factors-totp-*.jar`.
 
 ## How to run
 

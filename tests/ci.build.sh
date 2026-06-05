@@ -23,7 +23,7 @@ rm -f "${ARTIFACTS_DIR}"/*.jar "${ARTIFACTS_DIR}"/*.tgz
 UPA_API_DIR="../../user-password-authentication/api/target"
 UPA_UI_DIR="../../user-password-authentication/ui/target"
 UPA_TEMPLATE_SET_DIR="../../user-password-authentication/test-modules/template-set/target"
-TOTP_TARGET_DIR="../factor/target"
+TOTP_TARGET_DIR="../totp/target"
 TOTP_LOGIN_UI_DIR="../login-ui/target"
 
 echo "== Staging UPA api JAR =="
@@ -45,9 +45,9 @@ cp "${UPA_UI_TGZ}" "${ARTIFACTS_DIR}/"
 echo "  staged: $(basename "${UPA_UI_TGZ}")"
 
 echo "== Staging TOTP factor JAR =="
-TOTP_JAR=$(ls -1 "${TOTP_TARGET_DIR}"/mfa-totp-factor-*.jar 2>/dev/null | grep -v sources | grep -v javadoc | head -n1 || true)
+TOTP_JAR=$(ls -1 "${TOTP_TARGET_DIR}"/mfa-factors-totp-*.jar 2>/dev/null | grep -v sources | grep -v javadoc | head -n1 || true)
 if [[ -z "${TOTP_JAR}" ]]; then
-  echo "ERROR: Could not find TOTP factor JAR under ${TOTP_TARGET_DIR}. Run 'mvn package' on mfa-totp-factor first."
+  echo "ERROR: Could not find TOTP factor JAR under ${TOTP_TARGET_DIR}. Run 'mvn package' on mfa-factors-totp first."
   exit 1
 fi
 cp "${TOTP_JAR}" "${ARTIFACTS_DIR}/"
@@ -64,7 +64,7 @@ cp "${UPA_TEMPLATE_SET_JAR}" "${ARTIFACTS_DIR}/"
 echo "  staged: $(basename "${UPA_TEMPLATE_SET_JAR}")"
 
 echo "== Staging TOTP login-ui tgz =="
-TOTP_LOGIN_UI_TGZ=$(ls -1 "${TOTP_LOGIN_UI_DIR}"/mfa-totp-factor-login-ui-*.tgz 2>/dev/null | head -n1 || true)
+TOTP_LOGIN_UI_TGZ=$(ls -1 "${TOTP_LOGIN_UI_DIR}"/mfa-factors-login-ui-*.tgz 2>/dev/null | head -n1 || true)
 if [[ -z "${TOTP_LOGIN_UI_TGZ}" ]]; then
   echo "ERROR: Could not find TOTP login-ui tgz under ${TOTP_LOGIN_UI_DIR}."
   echo "       Build it via: mvn -f ../login-ui/pom.xml package"

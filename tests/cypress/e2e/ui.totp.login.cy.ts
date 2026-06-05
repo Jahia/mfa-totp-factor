@@ -1,5 +1,5 @@
 /**
- * Login-flow tests for the TOTP UI module (mfa-totp-factor-login-ui).
+ * Login-flow tests for the TOTP UI module (mfa-factors-login-ui).
  *
  * Each test:
  *   - Provisions a fresh user enrolled in TOTP via GraphQL (so we don't have to

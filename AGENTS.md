@@ -8,7 +8,7 @@ Keep edits minimal and consistent with the conventions below.
 Third-party Jahia 8.2 **multi-module Maven project** (root `pom.xml` is a `packaging=pom`
 aggregator, mirroring UPA's layout). It has two modules:
 
-- **`factor/`** &mdash; the OSGi bundle (`packaging=bundle`, artifactId `mfa-totp-factor`).
+- **`totp/`** &mdash; the OSGi bundle (`packaging=bundle`, artifactId `mfa-factors-totp`).
   Implements the `MfaFactorProvider` SPI exposed by the
   [User Password Authentication (UPA)](https://github.com/Jahia/user-password-authentication)
   module, contributes a TOTP factor to UPA's MFA pipeline, and bundles the self-service
@@ -27,7 +27,7 @@ sync with that document; do not duplicate its contents inside the module.
 
 ```
 pom.xml                            Root aggregator (packaging=pom): <modules>factor, login-ui</modules>.
-factor/                            OSGi bundle module (artifactId mfa-totp-factor).
+totp/                            OSGi bundle module (artifactId mfa-factors-totp).
   pom.xml
   src/main/java/org/jahia/modules/upa/mfa/totp/
     TotpService.java                 RFC 6238 primitive: HOTP/TOTP generation + verification, Base32, otpauth:// URI.
@@ -47,7 +47,7 @@ factor/                            OSGi bundle module (artifactId mfa-totp-facto
   src/main/javascript/               Dashboard (self-service) + per-site admin React (webpack/Module Federation).
   src/main/resources/META-INF/
     definitions.cnd                  JCR node types: upaTotp:userSettings (per-user) + upaTotp:siteSettings (per-site).
-    configurations/...authorization-mfa-totp-factor.yml  Grants GraphQL types.
+    configurations/...authorization-mfa-factors-totp.yml  Grants GraphQL types.
   src/test/java/...                  JUnit 4 tests.
 login-ui/                          JS-SDK module (Vite → .tgz): totpui:authentication sign-in template + factor chooser.
 tests/                             Cypress / docker-compose E2E harness (isolated Compose project; mirrors UPA's tests/).
@@ -92,7 +92,7 @@ The mutation tree is grafted onto UPA's `FactorsMutation` via the
 `@GraphQLTypeExtension` annotation in `TotpFactorMutationExtension`. Discovery happens
 through `gql/ExtensionsAutoDiscovery`, registered as an OSGi `@Component` that exposes a
 `DXGraphQLExtensionsProvider`. If you add new GraphQL types or mutations, register them
-in the same file and grant them in `org.jahia.bundles.api.authorization-mfa-totp-factor.yml`.
+in the same file and grant them in `org.jahia.bundles.api.authorization-mfa-factors-totp.yml`.
 
 ## Common pitfalls
 
@@ -111,7 +111,7 @@ in the same file and grant them in `org.jahia.bundles.api.authorization-mfa-totp
 
 To re-run a security review pass, prompt a fresh agent with something like:
 
-> Review every file under `factor/src/main/java/org/jahia/modules/upa/mfa/totp/` for: replay,
+> Review every file under `totp/src/main/java/org/jahia/modules/upa/mfa/totp/` for: replay,
 > timing-attack, brute force, secret disclosure, JCR transaction races, logging of
 > secrets/codes, and OWASP ASVS controls relevant to MFA. Cross-check against
 > `../SECURITY-REVIEW.md`. Output findings as severity/title/file/lines/fix.
