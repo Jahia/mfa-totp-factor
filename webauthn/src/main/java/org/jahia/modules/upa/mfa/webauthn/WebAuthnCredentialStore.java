@@ -399,17 +399,7 @@ public class WebAuthnCredentialStore implements CredentialRepository {
                 }
                 NodeIterator it = user.getNodes();
                 while (it.hasNext()) {
-                    Node n = it.nextNode();
-                    ByteArray id = n.isNodeType(NT_CREDENTIAL) ? parseB64(strProp(n, PROP_CREDENTIAL_ID)) : null;
-                    if (id != null) {
-                        PublicKeyCredentialDescriptor.PublicKeyCredentialDescriptorBuilder b =
-                                PublicKeyCredentialDescriptor.builder().id(id);
-                        Set<AuthenticatorTransport> transports = parseTransports(multiProp(n, PROP_TRANSPORTS));
-                        if (!transports.isEmpty()) {
-                            b.transports(transports);
-                        }
-                        out.add(b.build());
-                    }
+                    toDescriptor(it.nextNode()).ifPresent(out::add);
                 }
                 return out;
             });
@@ -495,6 +485,21 @@ public class WebAuthnCredentialStore implements CredentialRepository {
     }
 
     // --- helpers -------------------------------------------------------------------------
+
+    /** Map a credential node to a {@link PublicKeyCredentialDescriptor} (empty for non-credential/invalid nodes). */
+    private Optional<PublicKeyCredentialDescriptor> toDescriptor(Node n) throws RepositoryException {
+        ByteArray id = n.isNodeType(NT_CREDENTIAL) ? parseB64(strProp(n, PROP_CREDENTIAL_ID)) : null;
+        if (id == null) {
+            return Optional.empty();
+        }
+        PublicKeyCredentialDescriptor.PublicKeyCredentialDescriptorBuilder b =
+                PublicKeyCredentialDescriptor.builder().id(id);
+        Set<AuthenticatorTransport> transports = parseTransports(multiProp(n, PROP_TRANSPORTS));
+        if (!transports.isEmpty()) {
+            b.transports(transports);
+        }
+        return Optional.of(b.build());
+    }
 
     private Optional<RegisteredCredential> buildRegisteredCredential(Node cred, ByteArray credentialId,
                                                                      ByteArray userHandle) throws RepositoryException {

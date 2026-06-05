@@ -30,6 +30,9 @@ public class WebAuthnConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(WebAuthnConfig.class);
 
+    private static final String DEFAULT_RP_ID = "localhost";
+    private static final String DEFAULT_RP_NAME = "Jahia";
+
     @ObjectClassDefinition(name = "MFA WebAuthn factor")
     public @interface Config {
         @AttributeDefinition(name = "Relying Party ID",
@@ -49,15 +52,15 @@ public class WebAuthnConfig {
 
     // Each holds an immutable value, swapped atomically on (re)configuration — avoids a
     // volatile reference to a mutable collection (java:S3077).
-    private final AtomicReference<String> rpId = new AtomicReference<>("localhost");
-    private final AtomicReference<String> rpName = new AtomicReference<>("Jahia");
+    private final AtomicReference<String> rpId = new AtomicReference<>(DEFAULT_RP_ID);
+    private final AtomicReference<String> rpName = new AtomicReference<>(DEFAULT_RP_NAME);
     private final AtomicReference<Set<String>> origins = new AtomicReference<>(Collections.emptySet());
 
     @Activate
     @Modified
     public void activate(Config config) {
-        rpId.set(StringUtils.defaultIfBlank(config.rpId(), "localhost").trim());
-        rpName.set(StringUtils.defaultIfBlank(config.rpName(), "Jahia").trim());
+        rpId.set(StringUtils.defaultIfBlank(config.rpId(), DEFAULT_RP_ID).trim());
+        rpName.set(StringUtils.defaultIfBlank(config.rpName(), DEFAULT_RP_NAME).trim());
         Set<String> parsed = new LinkedHashSet<>();
         if (config.origins() != null) {
             for (String origin : config.origins()) {
