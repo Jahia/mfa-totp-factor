@@ -70,11 +70,11 @@ const AuditReportSection = ({siteKey}) => {
                 <table data-testid="audit-table" style={{borderCollapse: 'collapse', width: '100%'}}>
                     <thead>
                         <tr>
-                            <th style={cell}>{t('siteSettings.audit.colTime')}</th>
-                            <th style={cell}>{t('siteSettings.audit.colEvent')}</th>
-                            <th style={cell}>{t('siteSettings.audit.colOutcome')}</th>
-                            <th style={cell}>{t('siteSettings.audit.colUser')}</th>
-                            <th style={cell}>{t('siteSettings.audit.colDetail')}</th>
+                            <th scope="col" style={cell}>{t('siteSettings.audit.colTime')}</th>
+                            <th scope="col" style={cell}>{t('siteSettings.audit.colEvent')}</th>
+                            <th scope="col" style={cell}>{t('siteSettings.audit.colOutcome')}</th>
+                            <th scope="col" style={cell}>{t('siteSettings.audit.colUser')}</th>
+                            <th scope="col" style={cell}>{t('siteSettings.audit.colDetail')}</th>
                         </tr>
                     </thead>
                     <tbody>

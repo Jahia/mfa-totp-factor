@@ -6,8 +6,8 @@ import {ResetUserMfaMutation} from './SiteSettings.gql';
 import {mapAdminError} from './siteSettings.util';
 
 /**
- * Admin recovery: clear a user's TOTP enrollment when they have lost their device AND their
- * backup codes. Distinct from self-service disable (which requires the user's own code).
+ * Admin recovery: remove all of a user's registered WebAuthn authenticators when they have lost
+ * their devices. Two-phase confirmation guards this irreversible action.
  */
 const ResetUserSection = ({siteKey}) => {
     const {t} = useTranslation('mfa-factors-webauthn');

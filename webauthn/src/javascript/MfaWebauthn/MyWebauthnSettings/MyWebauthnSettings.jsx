@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {useQuery, useMutation} from '@apollo/client';
-import {Button, Header, Typography, Loader} from '@jahia/moonstone';
+import {Button, Header, Typography, Loader, Input, Modal, ModalHeader, ModalBody, ModalFooter} from '@jahia/moonstone';
 import {ContentLayout} from '@jahia/moonstone-alpha';
 import {StatusQuery, RenameCredentialMutation, DeleteCredentialMutation} from '../MfaWebauthn.gql';
 import RegisterDialog from '../RegisterDialog/RegisterDialog';
@@ -11,29 +11,29 @@ const formatDate = ms => (ms ? new Date(Number(ms)).toLocaleString() : '—');
 const MyWebauthnSettings = () => {
     const {t} = useTranslation('mfa-factors-webauthn');
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [renameTarget, setRenameTarget] = useState(null); // {credentialId, nickname}
+    const [renameValue, setRenameValue] = useState('');
+    const [deleteTarget, setDeleteTarget] = useState(null); // {credentialId, nickname}
     const {data, loading, refetch} = useQuery(StatusQuery, {fetchPolicy: 'network-only'});
 
-    const [renameMutation] = useMutation(RenameCredentialMutation);
-    const [deleteMutation] = useMutation(DeleteCredentialMutation);
+    const [renameMutation, {loading: renaming}] = useMutation(RenameCredentialMutation);
+    const [deleteMutation, {loading: deleting}] = useMutation(DeleteCredentialMutation);
 
     const credentials = (data && data.mfaWebauthn && data.mfaWebauthn.status &&
         data.mfaWebauthn.status.credentials) || [];
 
-    const onRename = async credentialId => {
-        // eslint-disable-next-line no-alert
-        const nickname = window.prompt(t('list.renamePrompt'));
-        if (nickname && nickname.trim()) {
-            await renameMutation({variables: {credentialId, nickname: nickname.trim()}});
+    const confirmRename = async () => {
+        if (renameValue.trim()) {
+            await renameMutation({variables: {credentialId: renameTarget.credentialId, nickname: renameValue.trim()}});
+            setRenameTarget(null);
             refetch();
         }
     };
 
-    const onDelete = async (credentialId, nickname) => {
-        // eslint-disable-next-line no-alert
-        if (window.confirm(t('list.deleteConfirm', {nickname}))) {
-            await deleteMutation({variables: {credentialId}});
-            refetch();
-        }
+    const confirmDelete = async () => {
+        await deleteMutation({variables: {credentialId: deleteTarget.credentialId}});
+        setDeleteTarget(null);
+        refetch();
     };
 
     const mainActions = [
@@ -69,10 +69,10 @@ const MyWebauthnSettings = () => {
                                 <table data-testid="webauthn-credentials" style={{width: '100%', borderCollapse: 'collapse'}}>
                                     <thead>
                                         <tr style={{textAlign: 'left', borderBottom: '1px solid #ccc'}}>
-                                            <th style={{padding: '8px 4px'}}>{t('list.colName')}</th>
-                                            <th style={{padding: '8px 4px'}}>{t('list.colCreated')}</th>
-                                            <th style={{padding: '8px 4px'}}>{t('list.colLastUsed')}</th>
-                                            <th style={{padding: '8px 4px'}}/>
+                                            <th scope="col" style={{padding: '8px 4px'}}>{t('list.colName')}</th>
+                                            <th scope="col" style={{padding: '8px 4px'}}>{t('list.colCreated')}</th>
+                                            <th scope="col" style={{padding: '8px 4px'}}>{t('list.colLastUsed')}</th>
+                                            <th scope="col" aria-label={t('list.colActions')} style={{padding: '8px 4px'}}/>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -84,11 +84,16 @@ const MyWebauthnSettings = () => {
                                                 <td style={{padding: '8px 4px', textAlign: 'right'}}>
                                                     <Button variant="ghost"
                                                             label={t('list.rename')}
-                                                            onClick={() => onRename(c.credentialId)}/>
+                                                            aria-label={t('list.renameOf', {nickname: c.nickname})}
+                                                            onClick={() => {
+                                                                setRenameValue(c.nickname || '');
+                                                                setRenameTarget(c);
+                                                            }}/>
                                                     <Button variant="ghost"
                                                             color="danger"
                                                             label={t('list.delete')}
-                                                            onClick={() => onDelete(c.credentialId, c.nickname)}/>
+                                                            aria-label={t('list.deleteOf', {nickname: c.nickname})}
+                                                            onClick={() => setDeleteTarget(c)}/>
                                                 </td>
                                             </tr>
                                         ))}
@@ -97,12 +102,74 @@ const MyWebauthnSettings = () => {
                             )}
                         </>
                     )}
+
                     <RegisterDialog isOpen={dialogOpen}
                                     onClose={() => setDialogOpen(false)}
                                     onRegistered={() => {
                                         setDialogOpen(false);
                                         refetch();
                                     }}/>
+
+                    {renameTarget && (
+                        <Modal isOpen
+                               size="medium"
+                               onOpenChange={open => {
+                                   if (!open && !renaming) {
+                                       setRenameTarget(null);
+                                   }
+                               }}
+                        >
+                            <div data-testid="webauthn-rename-dialog">
+                                <ModalHeader title={t('list.renameTitle')}/>
+                                <ModalBody>
+                                    <label htmlFor="webauthn-rename-input"
+                                           style={{fontWeight: 600, display: 'block', marginBottom: 4}}
+                                    >
+                                        {t('list.renameLabel')}
+                                    </label>
+                                    <Input id="webauthn-rename-input"
+                                           value={renameValue}
+                                           maxLength={60}
+                                           data-testid="webauthn-rename-input"
+                                           onChange={e => setRenameValue(e.target.value)}/>
+                                </ModalBody>
+                                <ModalFooter>
+                                    <Button label={t('cancel')} isDisabled={renaming} onClick={() => setRenameTarget(null)}/>
+                                    <Button color="accent"
+                                            data-testid="webauthn-rename-confirm"
+                                            label={t('list.rename')}
+                                            isDisabled={renaming || !renameValue.trim()}
+                                            onClick={confirmRename}/>
+                                </ModalFooter>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {deleteTarget && (
+                        <Modal isOpen
+                               size="medium"
+                               onOpenChange={open => {
+                                   if (!open && !deleting) {
+                                       setDeleteTarget(null);
+                                   }
+                               }}
+                        >
+                            <div data-testid="webauthn-delete-dialog" role="alertdialog">
+                                <ModalHeader title={t('list.deleteTitle')}/>
+                                <ModalBody>
+                                    <Typography>{t('list.deleteConfirm', {nickname: deleteTarget.nickname})}</Typography>
+                                </ModalBody>
+                                <ModalFooter>
+                                    <Button label={t('cancel')} isDisabled={deleting} onClick={() => setDeleteTarget(null)}/>
+                                    <Button color="danger"
+                                            data-testid="webauthn-delete-confirm"
+                                            label={t('list.delete')}
+                                            isDisabled={deleting}
+                                            onClick={confirmDelete}/>
+                                </ModalFooter>
+                            </div>
+                        </Modal>
+                    )}
                 </div>
             )}
         />

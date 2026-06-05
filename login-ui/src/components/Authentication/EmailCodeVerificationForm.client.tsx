@@ -52,7 +52,7 @@ export default function EmailCodeVerificationForm(
 
   if (loading) {
     return (
-      <div>
+      <div role="status" aria-live="polite">
         <Trans i18nKey="verify.loading" />
       </div>
     );

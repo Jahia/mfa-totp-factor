@@ -132,14 +132,17 @@ const SiteSettings = () => {
                                        onChange={v => setGroups(v)}/>
 
                             {errorKey && (
-                                <Typography style={{color: '#c00', display: 'block', marginTop: 12}}
+                                <Typography role="alert"
+                                            style={{color: '#a00000', display: 'block', marginTop: 12}}
                                             data-testid="webauthn-site-settings-error"
                                 >
                                     {t(errorKey)}
                                 </Typography>
                             )}
                             {savedAt && !errorKey && (
-                                <Typography style={{color: '#080', display: 'block', marginTop: 12}}
+                                <Typography role="status"
+                                            aria-live="polite"
+                                            style={{color: '#006600', display: 'block', marginTop: 12}}
                                             data-testid="webauthn-site-settings-saved"
                                 >
                                     {t('siteSettings.saved')}
@@ -166,13 +169,14 @@ const CheckboxField = ({id, testid, checked, disabled, label, help, onChange}) =
                checked={checked}
                disabled={disabled}
                data-testid={testid}
-               style={{marginTop: 4}}
+               aria-describedby={`${id}-help`}
+               style={{marginTop: 4, cursor: disabled ? 'not-allowed' : 'pointer'}}
                onChange={e => onChange(e.target.checked)}/>
         <div>
             <label htmlFor={id} style={{fontWeight: 600, display: 'block', cursor: disabled ? 'not-allowed' : 'pointer'}}>
                 {label}
             </label>
-            <Typography variant="caption" style={{display: 'block', color: '#555'}}>{help}</Typography>
+            <Typography id={`${id}-help`} variant="caption" style={{display: 'block', color: '#555'}}>{help}</Typography>
         </div>
     </div>
 );
@@ -188,9 +192,11 @@ const TextField = ({id, testid, type, value, disabled, placeholder, label, help,
                min={min}
                max={max}
                data-testid={testid}
-               style={{padding: '0.4rem', minWidth: 280, borderRadius: 4, border: '1px solid #ccc'}}
+               aria-describedby={`${id}-help`}
+               style={{padding: '0.4rem', minWidth: 280, borderRadius: 4, border: '1px solid #ccc',
+                       cursor: disabled ? 'not-allowed' : 'auto'}}
                onChange={e => onChange(e.target.value)}/>
-        <Typography variant="caption" style={{display: 'block', color: '#555', marginTop: 4}}>{help}</Typography>
+        <Typography id={`${id}-help`} variant="caption" style={{display: 'block', color: '#555', marginTop: 4}}>{help}</Typography>
     </div>
 );
 

@@ -65,7 +65,7 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
 
   if (loading) {
     return (
-      <div>
+      <div role="status" aria-live="polite">
         <Trans i18nKey="verify.loading" />
       </div>
     );
@@ -159,6 +159,7 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
             type="button"
             className={classes.toggleMode}
             data-testid="toggle-backup-code"
+            aria-pressed={useBackupCode}
             onClick={() => setUseBackupCode((v) => !v)}
           >
             {useBackupCode

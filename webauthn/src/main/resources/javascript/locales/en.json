@@ -8,9 +8,14 @@
     "colName": "Name",
     "colCreated": "Registered",
     "colLastUsed": "Last used",
+    "colActions": "Actions",
     "rename": "Rename",
+    "renameOf": "Rename {{nickname}}",
+    "renameTitle": "Rename authenticator",
+    "renameLabel": "New name",
     "delete": "Remove",
-    "renamePrompt": "New name for this authenticator:",
+    "deleteOf": "Remove {{nickname}}",
+    "deleteTitle": "Remove authenticator",
     "deleteConfirm": "Remove \"{{nickname}}\"? You will no longer be able to sign in with this authenticator."
   },
   "register": {

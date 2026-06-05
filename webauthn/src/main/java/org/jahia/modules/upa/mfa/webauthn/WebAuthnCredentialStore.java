@@ -184,13 +184,25 @@ public class WebAuthnCredentialStore implements CredentialRepository {
         });
     }
 
-    /** Update the sign counter (+ last-used) for a credential after a successful assertion. */
+    /**
+     * Update the sign counter (+ last-used) for a credential after a successful assertion.
+     * <p>
+     * The counter is read and written in the SAME system-session transaction and only ever
+     * advanced — never regressed. {@code newSignCount == 0} means the authenticator does not
+     * keep a counter (clone detection is not possible for it); we still record last-used.
+     * This guards the single-node read-modify-write; a JCR {@code save()} conflict between two
+     * concurrent assertions on a cluster makes the loser's transaction retry/fail rather than
+     * silently roll the counter back.
+     */
     public void updateOnAssertion(String userId, String credentialIdB64, long newSignCount)
             throws RepositoryException {
         JCRTemplate.getInstance().doExecuteWithSystemSession(session -> {
             Node cred = findCredentialNode(userManagerService.lookupUser(userId, session), credentialIdB64);
             if (cred != null) {
-                cred.setProperty(PROP_SIGN_COUNT, newSignCount);
+                long current = cred.hasProperty(PROP_SIGN_COUNT) ? cred.getProperty(PROP_SIGN_COUNT).getLong() : 0L;
+                if (newSignCount > current) {
+                    cred.setProperty(PROP_SIGN_COUNT, newSignCount);
+                }
                 cred.setProperty(PROP_LAST_USED_AT, System.currentTimeMillis());
                 session.save();
             }
@@ -535,6 +547,9 @@ public class WebAuthnCredentialStore implements CredentialRepository {
 
     private static Set<AuthenticatorTransport> parseTransports(List<String> ids) {
         Set<AuthenticatorTransport> out = new TreeSet<>();
+        if (ids == null) {
+            return out;
+        }
         for (String id : ids) {
             if (StringUtils.isNotBlank(id)) {
                 out.add(AuthenticatorTransport.of(id.trim()));

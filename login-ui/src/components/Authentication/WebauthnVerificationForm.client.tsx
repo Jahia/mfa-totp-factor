@@ -26,7 +26,15 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const requestOptionsRef = useRef<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const supported = isWebauthnSupported();
+
+  // Move focus to the primary action when the step becomes interactive (focus order on transition).
+  useEffect(() => {
+    if (!loading && supported) {
+      buttonRef.current?.focus();
+    }
+  }, [loading, supported]);
 
   useEffect(() => {
     if (!supported) {
@@ -88,7 +96,7 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
 
   if (loading) {
     return (
-      <div>
+      <div role="status" aria-live="polite">
         <Trans i18nKey="verify.loading" />
       </div>
     );
@@ -107,8 +115,10 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
           <ErrorMessage message={error} />
           <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
             <button
+              ref={buttonRef}
               type="button"
               disabled={submitting || !requestOptionsRef.current}
+              aria-busy={submitting}
               data-testid="webauthn-authenticate"
               className={classes.submitButton}
               onClick={authenticate}
@@ -120,7 +130,7 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
           </div>
         </>
       ) : (
-        <p className={classes.helpText} data-testid="webauthn-unsupported">
+        <p className={classes.helpText} role="alert" data-testid="webauthn-unsupported">
           <Trans i18nKey="factor.webauthn.unsupported" />
         </p>
       )}

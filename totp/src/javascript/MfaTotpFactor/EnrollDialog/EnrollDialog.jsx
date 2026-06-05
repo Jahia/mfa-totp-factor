@@ -31,7 +31,11 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
                 <ModalHeader title={t('enrollDialog.title')}/>
                 <ModalBody>
                     <Typography>{t('enrollDialog.step1')}</Typography>
-                    <div style={{textAlign: 'center', margin: '16px 0'}} data-testid="enroll-qr">
+                    <div style={{textAlign: 'center', margin: '16px 0'}}
+                         data-testid="enroll-qr"
+                         role="img"
+                         aria-label={t('enrollDialog.qrAlt')}
+                    >
                         <QRCodeCanvas value={enrollData.otpauthUri} size={224} level="M"/>
                     </div>
                     <Typography variant="caption"
@@ -53,7 +57,8 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
                            style={{marginTop: 8}}
                            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}/>
                     {errorKey && (
-                        <Typography style={{marginTop: 12, color: '#c00', display: 'block'}}
+                        <Typography role="alert"
+                                    style={{marginTop: 12, color: '#a00000', display: 'block'}}
                                     data-testid="enroll-error"
                         >
                             {t(errorKey)}

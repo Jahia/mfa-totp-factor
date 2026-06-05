@@ -42,7 +42,11 @@ export default function FactorChooser({
       <p className={classes.helpText}>
         <Trans i18nKey="factorChooser.description" />
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+      <div
+        role="group"
+        aria-label={t("factorChooser.title")}
+        style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}
+      >
         {factors.map((factor) => (
           <button
             key={factor}

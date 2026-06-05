@@ -163,14 +163,17 @@ const SiteSettings = () => {
                                        onChange={v => setLogoutUrl(v)}/>
 
                             {errorKey && (
-                                <Typography style={{color: '#c00', display: 'block', marginTop: 12}}
+                                <Typography role="alert"
+                                            style={{color: '#a00000', display: 'block', marginTop: 12}}
                                             data-testid="site-settings-error"
                                 >
                                     {t(errorKey)}
                                 </Typography>
                             )}
                             {savedAt && !errorKey && (
-                                <Typography style={{color: '#080', display: 'block', marginTop: 12}}
+                                <Typography role="status"
+                                            aria-live="polite"
+                                            style={{color: '#006600', display: 'block', marginTop: 12}}
                                             data-testid="site-settings-saved"
                                 >
                                     {t('siteSettings.saved')}

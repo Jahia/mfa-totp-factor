@@ -15,7 +15,8 @@
   "enrollDialog": {
     "title": "Enable two-factor authentication",
     "step1": "Scan this QR code with your authenticator app (or paste the secret manually).",
-    "step2": "Then enter the 6-digit code your app is currently showing:"
+    "step2": "Then enter the 6-digit code your app is currently showing:",
+    "qrAlt": "QR code to scan with your authenticator app. If you cannot scan it, enter the secret shown below manually."
   },
   "disableDialog": {
     "title": "Disable two-factor authentication",
