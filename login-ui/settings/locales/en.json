@@ -20,6 +20,14 @@
   "factor.totp.useBackupCode": "Use a backup code instead",
   "factor.totp.useAuthenticatorCode": "Use the authenticator app code instead",
   "factor.totp.enrollment_required": "Two-factor authentication is required. Redirecting to enrollment…",
+  "factor.webauthn.title": "Security key / passkey",
+  "factor.webauthn.help": "Use your registered security key, fingerprint, or saved passkey to finish signing in.",
+  "factor.webauthn.authenticate": "Use your security key",
+  "factor.webauthn.inProgress": "Waiting for your authenticator…",
+  "factor.webauthn.cancelled": "Authentication was cancelled or timed out. Please try again.",
+  "factor.webauthn.verification_failed": "Could not verify your authenticator. Please try again.",
+  "factor.webauthn.registration_required": "A security key or passkey is required. Redirecting you to register…",
+  "factor.webauthn.unsupported": "This browser does not support WebAuthn. Use a recent Chrome, Edge, Firefox or Safari, or choose another method.",
   "factor.email_code.title": "Email verification",
   "factor.email_code.verify": "Verify",
   "factor.email_code.resend": "Send a new code",
@@ -30,5 +38,6 @@
   "factorChooser.title": "Choose a verification method",
   "factorChooser.description": "Several methods are available. Pick the one you want to use to finish signing in.",
   "factorChooser.totp": "Authenticator app (TOTP)",
-  "factorChooser.email_code": "Email code"
+  "factorChooser.email_code": "Email code",
+  "factorChooser.webauthn": "Security key / passkey"
 }

@@ -3,6 +3,7 @@ import LoginForm from "./LoginForm.client";
 import { ApiRootContext } from "../../hooks/ApiRootContext";
 import TotpCodeVerificationForm from "./TotpCodeVerificationForm.client";
 import EmailCodeVerificationForm from "./EmailCodeVerificationForm.client";
+import WebauthnVerificationForm from "./WebauthnVerificationForm.client";
 import FactorChooser from "./FactorChooser.client";
 import type { Props } from "./types";
 import { redirect } from "../../services";
@@ -76,6 +77,14 @@ export default function Authentication({
         );
       case "email_code":
         return <EmailCodeVerificationForm onSuccess={onVerifySuccess} onFatalError={onFatalError} />;
+      case "webauthn":
+        return (
+          <WebauthnVerificationForm
+            content={content}
+            onSuccess={onVerifySuccess}
+            onFatalError={onFatalError}
+          />
+        );
       default:
         return (
           <FatalErrorScreen

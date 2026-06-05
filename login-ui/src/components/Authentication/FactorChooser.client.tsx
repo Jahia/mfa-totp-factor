@@ -27,6 +27,8 @@ export default function FactorChooser({
         return t("factorChooser.totp");
       case "email_code":
         return t("factorChooser.email_code");
+      case "webauthn":
+        return t("factorChooser.webauthn");
       default:
         return factor;
     }
