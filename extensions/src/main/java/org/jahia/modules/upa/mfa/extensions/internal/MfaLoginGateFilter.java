@@ -2,6 +2,7 @@ package org.jahia.modules.upa.mfa.extensions.internal;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jahia.bin.filters.AbstractServletFilter;
+import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
 import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -39,19 +40,21 @@ import java.util.regex.Pattern;
  * never consults MFA factors. On a site that <i>enforces</i> enrollment, that endpoint is
  * therefore a complete second-factor bypass. This filter closes it:
  * <ul>
+ *   <li>nothing is gated while the global enforcement policy ({@link MfaGlobalPolicy}) lists no
+ *       factors;</li>
  *   <li>requests carrying a site context (the {@code site} request parameter or the
- *       {@code siteKey} request attribute) are gated when THAT site has a factor
- *       {@code enabled + enforced};</li>
+ *       {@code siteKey} request attribute) are gated when THAT site has one of the globally
+ *       enforced factors {@code enabled};</li>
  *   <li>requests with no site context (the common case for {@code /cms/login}) are gated when
- *       ANY site enforces enrollment — the endpoint authenticates globally, so a single
- *       enforcing site is enough to make it a bypass vector;</li>
+ *       ANY site has an enforced factor enabled — the endpoint authenticates globally, so a
+ *       single such site is enough to make it a bypass vector;</li>
  *   <li>gated requests are rejected with {@code 403} unless the client IP matches the
  *       configured whitelist, so operators keep an emergency/back-office door (e.g. their
  *       VPN range).</li>
  * </ul>
  * <p>
- * The filter is factor-agnostic: it discovers enforcement state through every registered
- * {@link MfaSiteProvider} (TOTP, WebAuthn, ...) and gates when any of them reports enforcement.
+ * The filter is factor-agnostic: it discovers per-site activation through every registered
+ * {@link MfaSiteProvider} (TOTP, WebAuthn, ...) and intersects it with the global policy.
  * It therefore has no compile-time dependency on any individual factor module.
  * <p>
  * The client IP is taken from the FIRST entry of the {@code X-Forwarded-For} header when
@@ -102,8 +105,11 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
     private final AtomicReference<List<String>> whitelist = new AtomicReference<>(Collections.emptyList());
     private final AtomicReference<EnforcingCache> enforcingCache = new AtomicReference<>();
 
-    /** Every registered factor's enforcement view. Read-heavy on the request path → copy-on-write. */
+    /** Every registered factor's per-site activation view. Read-heavy on the request path → copy-on-write. */
     private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
+
+    /** The global enforcement policy (same bundle, same configuration PID). */
+    private MfaGlobalPolicy globalPolicy;
 
     public MfaLoginGateFilter() {
         setFilterName("MfaLoginGateFilter");
@@ -111,6 +117,11 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
         // Run early among module filters: the whole point is to fire before anything
         // credential-related happens.
         setOrder(-1f);
+    }
+
+    @Reference
+    public void setGlobalPolicy(MfaGlobalPolicy globalPolicy) {
+        this.globalPolicy = globalPolicy;
     }
 
     @Reference(service = MfaSiteProvider.class,
@@ -194,11 +205,14 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
     }
 
     /**
-     * Whether this request must be gated: the request's site (when identifiable) enforces
-     * enrollment via some factor, or — with no site context — any site does. Fails CLOSED when a
-     * provider cannot answer (throws).
+     * Whether this request must be gated: global enforcement is active AND the request's site
+     * (when identifiable) has one of the enforced factors enabled, or — with no site context —
+     * any site does. Fails CLOSED when a provider cannot answer (throws).
      */
     private boolean isGated(HttpServletRequest request) {
+        if (!globalPolicy.isEnforcementActive()) {
+            return false;
+        }
         String siteKey = resolveSiteKey(request);
         if (siteKey != null) {
             return anyEnforcesForSite(siteKey);
@@ -206,11 +220,14 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
         return isAnySiteEnforcingCached();
     }
 
-    /** Gated if any factor enforces enrollment for {@code siteKey}; a throwing provider fails CLOSED. */
-    private boolean anyEnforcesForSite(String siteKey) {
+    /**
+     * Gated if any globally-enforced factor is enabled for {@code siteKey}; a throwing provider
+     * fails CLOSED. Package-visible for tests.
+     */
+    boolean anyEnforcesForSite(String siteKey) {
         for (MfaSiteProvider provider : siteProviders) {
             try {
-                if (provider.isEnforcedForSite(siteKey)) {
+                if (globalPolicy.isEnforced(provider.getFactorType()) && provider.isEnabledForSite(siteKey)) {
                     return true;
                 }
             } catch (RuntimeException e) {
@@ -249,11 +266,14 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
         return enforcing;
     }
 
-    /** True if any factor enforces enrollment on at least one site; a throwing provider fails CLOSED. */
-    private boolean computeAnySiteEnforcing() {
+    /**
+     * True if any globally-enforced factor is enabled on at least one site; a throwing provider
+     * fails CLOSED. Package-visible for tests.
+     */
+    boolean computeAnySiteEnforcing() {
         for (MfaSiteProvider provider : siteProviders) {
             try {
-                if (provider.isAnySiteEnforced()) {
+                if (globalPolicy.isEnforced(provider.getFactorType()) && provider.isAnySiteEnabled()) {
                     return true;
                 }
             } catch (RuntimeException e) {

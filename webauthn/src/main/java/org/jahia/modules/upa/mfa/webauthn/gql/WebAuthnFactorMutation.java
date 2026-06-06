@@ -93,10 +93,15 @@ public class WebAuthnFactorMutation {
         HttpServletResponse response = ContextUtil.getHttpServletResponse(environment.getGraphQlContext());
         MfaSession session = mfaService.prepareFactor(FACTOR_TYPE, request, response);
         Object prep = session.getOrCreateFactorState(FACTOR_TYPE).getPreparationResult();
-        String optionsJson = (prep instanceof org.jahia.modules.upa.mfa.webauthn.WebAuthnPreparationResult)
-                ? ((org.jahia.modules.upa.mfa.webauthn.WebAuthnPreparationResult) prep).getClientOptionsJson()
-                : null;
-        return new WebAuthnPreparation(session, optionsJson);
+        String optionsJson = null;
+        boolean skipped = false;
+        if (prep instanceof org.jahia.modules.upa.mfa.webauthn.WebAuthnPreparationResult) {
+            org.jahia.modules.upa.mfa.webauthn.WebAuthnPreparationResult result =
+                    (org.jahia.modules.upa.mfa.webauthn.WebAuthnPreparationResult) prep;
+            optionsJson = result.getClientOptionsJson();
+            skipped = result.isSkipped();
+        }
+        return new WebAuthnPreparation(session, optionsJson, skipped);
     }
 
     @GraphQLField

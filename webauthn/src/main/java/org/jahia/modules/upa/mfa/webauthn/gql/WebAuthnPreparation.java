@@ -15,10 +15,12 @@ import org.jahia.modules.upa.mfa.gql.Result;
 public class WebAuthnPreparation extends Result {
 
     private final String requestOptionsJson;
+    private final boolean skipped;
 
-    public WebAuthnPreparation(MfaSession session, String requestOptionsJson) {
+    public WebAuthnPreparation(MfaSession session, String requestOptionsJson, boolean skipped) {
         super(session);
         this.requestOptionsJson = requestOptionsJson;
+        this.skipped = skipped;
     }
 
     @GraphQLField
@@ -26,5 +28,12 @@ public class WebAuthnPreparation extends Result {
     @GraphQLDescription("JSON for navigator.credentials.get(); null when the factor was skipped for this session.")
     public String getPublicKeyCredentialRequestOptions() {
         return requestOptionsJson;
+    }
+
+    @GraphQLField
+    @GraphQLName("skipped")
+    @GraphQLDescription("True when the factor was skipped for this session — call verify with an empty assertion to drain it.")
+    public boolean isSkipped() {
+        return skipped;
     }
 }

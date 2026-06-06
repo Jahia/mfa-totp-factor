@@ -79,15 +79,15 @@ public class WebAuthnSiteSettingsStore {
     }
 
     /**
-     * Whether at least one site has WebAuthn {@code enabled + enforced}. Used by the shared
-     * {@code /cms/login} gate on its no-resolvable-site code path: that endpoint authenticates
-     * globally, so a single enforcing site makes it a second-factor bypass vector.
+     * Whether at least one site has WebAuthn {@code enabled}. Used by the shared
+     * {@code /cms/login} gate on its no-resolvable-site code path: while the global policy
+     * enforces this factor, any site with it enabled makes the legacy login endpoint a
+     * second-factor bypass vector. (Enforcement itself is global — see MfaGlobalPolicy.)
      */
-    public boolean isAnySiteEnforcing() throws RepositoryException {
+    public boolean isAnySiteEnabled() throws RepositoryException {
         return Boolean.TRUE.equals(JCRTemplate.getInstance().doExecuteWithSystemSession(session -> {
             javax.jcr.query.Query query = session.getWorkspace().getQueryManager().createQuery(
-                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true AND ["
-                            + PROP_ENFORCED + "] = true",
+                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true",
                     javax.jcr.query.Query.JCR_SQL2);
             query.setLimit(1);
             return query.execute().getNodes().hasNext();

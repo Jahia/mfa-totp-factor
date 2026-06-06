@@ -142,15 +142,15 @@ public class TotpSiteSettingsStore {
     }
 
     /**
-     * Whether at least one site currently has TOTP {@code enabled} AND {@code enforced}.
-     * Used by the {@code /cms/login} gate filter for requests that carry no site context:
-     * if any site enforces enrollment, the legacy login endpoint is a potential MFA bypass.
+     * Whether at least one site currently has TOTP {@code enabled}. Used by the
+     * {@code /cms/login} gate filter for requests that carry no site context: while the global
+     * policy enforces this factor, any site with it enabled makes the legacy login endpoint a
+     * potential MFA bypass. (Enforcement itself is global — see the extensions MfaGlobalPolicy.)
      */
-    public boolean isAnySiteEnforcing() throws RepositoryException {
+    public boolean isAnySiteEnabled() throws RepositoryException {
         return Boolean.TRUE.equals(JCRTemplate.getInstance().doExecuteWithSystemSession(session -> {
             javax.jcr.query.Query query = session.getWorkspace().getQueryManager().createQuery(
-                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true AND ["
-                            + PROP_ENFORCED + "] = true",
+                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true",
                     javax.jcr.query.Query.JCR_SQL2);
             query.setLimit(1);
             return query.execute().getNodes().hasNext();

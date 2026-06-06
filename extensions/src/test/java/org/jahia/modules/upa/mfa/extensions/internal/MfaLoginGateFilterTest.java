@@ -1,10 +1,14 @@
 package org.jahia.modules.upa.mfa.extensions.internal;
 
+import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isIpLiteral;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isWhitelisted;
@@ -119,5 +123,88 @@ public class MfaLoginGateFilterTest {
         assertFalse(isIpLiteral("example.com"));
         assertFalse(isIpLiteral(null));
         assertFalse(isIpLiteral(""));
+    }
+
+    // --- Gating decision: global policy ∩ per-site activation ---------------------------
+
+    @Test
+    public void notGatedWhenEnforcementInactiveEvenIfSitesEnabled() {
+        MfaLoginGateFilter gate = gateWith("", provider("totp", true, true, false));
+        assertFalse(gate.anyEnforcesForSite("siteA"));
+        assertFalse(gate.computeAnySiteEnforcing());
+    }
+
+    @Test
+    public void notGatedWhenEnabledFactorIsNotEnforced() {
+        MfaLoginGateFilter gate = gateWith("webauthn", provider("totp", true, true, false));
+        assertFalse(gate.anyEnforcesForSite("siteA"));
+        assertFalse(gate.computeAnySiteEnforcing());
+    }
+
+    @Test
+    public void gatedWhenAnEnforcedFactorIsEnabledOnTheSite() {
+        MfaLoginGateFilter gate = gateWith("totp,webauthn",
+                provider("totp", false, false, false),
+                provider("webauthn", true, true, false));
+        assertTrue(gate.anyEnforcesForSite("siteA"));
+        assertTrue(gate.computeAnySiteEnforcing());
+    }
+
+    @Test
+    public void notGatedWhenEnforcedFactorsAreDisabledOnEverySite() {
+        MfaLoginGateFilter gate = gateWith("totp", provider("totp", false, false, false));
+        assertFalse(gate.anyEnforcesForSite("siteA"));
+        assertFalse(gate.computeAnySiteEnforcing());
+    }
+
+    @Test
+    public void throwingProviderFailsClosed() {
+        MfaLoginGateFilter gate = gateWith("totp", provider("totp", true, true, true));
+        assertTrue("an unanswerable provider must block (fail closed)", gate.anyEnforcesForSite("siteA"));
+        assertTrue(gate.computeAnySiteEnforcing());
+    }
+
+    private static MfaLoginGateFilter gateWith(String enforcedFactors, MfaSiteProvider... providers) {
+        MfaLoginGateFilter gate = new MfaLoginGateFilter();
+        MfaGlobalPolicy policy = new MfaGlobalPolicy();
+        Map<String, Object> props = new HashMap<>();
+        props.put("enforcedFactors", enforcedFactors);
+        policy.activate(props);
+        gate.setGlobalPolicy(policy);
+        for (MfaSiteProvider p : providers) {
+            gate.bindSiteProvider(p);
+        }
+        return gate;
+    }
+
+    private static MfaSiteProvider provider(String type, boolean enabledForSite, boolean anySiteEnabled,
+                                            boolean throwing) {
+        return new MfaSiteProvider() {
+            @Override
+            public String getFactorType() {
+                return type;
+            }
+
+            @Override
+            public boolean isEnabledForSite(String siteKey) {
+                if (throwing) {
+                    throw new IllegalStateException("backend down");
+                }
+                return enabledForSite;
+            }
+
+            @Override
+            public boolean isAnySiteEnabled() {
+                if (throwing) {
+                    throw new IllegalStateException("backend down");
+                }
+                return anySiteEnabled;
+            }
+
+            @Override
+            public boolean isConfiguredForUser(String userId) {
+                return false;
+            }
+        };
     }
 }

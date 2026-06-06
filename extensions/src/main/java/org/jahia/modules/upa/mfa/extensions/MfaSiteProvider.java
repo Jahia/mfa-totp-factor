@@ -2,29 +2,50 @@ package org.jahia.modules.upa.mfa.extensions;
 
 /**
  * SPI implemented by every MFA factor (TOTP, WebAuthn, ...) so that the shared, factor-agnostic
- * infrastructure in this bundle — the {@code /cms/login} gate and the login/logout URL provider —
- * can reason about enforcement state and per-site login pages without depending on any individual
+ * infrastructure in this bundle — the {@code /cms/login} gate, the login/logout URL provider and
+ * the global enforcement policy ({@link MfaGlobalPolicy}) — can reason about per-site activation,
+ * per-user configuration state and per-site login pages without depending on any individual
  * factor module.
  *
  * <p>This inverts the dependency: {@code totp}/{@code webauthn} depend on {@code extensions} (for
- * {@link BackupCodes}), and in turn register an implementation of this interface. The gate and the
- * provider collect all registered implementations via an OSGi {@code @Reference(MULTIPLE)} and
- * aggregate across them (a site is gated when <em>any</em> factor enforces it; the per-site login
- * URL is the first non-blank value any factor supplies).</p>
+ * {@link BackupCodes} and {@link MfaGlobalPolicy}), and in turn register an implementation of this
+ * interface. Consumers collect all registered implementations via an OSGi
+ * {@code @Reference(MULTIPLE)} and aggregate across them.</p>
+ *
+ * <p><b>Error contract:</b> on an unrecoverable backend error (e.g. an unhealthy repository) the
+ * boolean methods should throw an unchecked exception rather than guess — access-control callers
+ * (the login gate) treat a throwing provider as fail-CLOSED, while best-effort callers (the URL
+ * provider) treat it as "no answer".</p>
  */
 public interface MfaSiteProvider {
 
     /**
-     * @param siteKey the JCR site key (never {@code null})
-     * @return {@code true} if this factor is enabled <em>and</em> enforces enrollment for the site
+     * @return the factor type this provider speaks for (e.g. {@code "totp"}, {@code "webauthn"}),
+     * matching the type registered with UPA's factor registry and listed in
+     * {@link MfaGlobalPolicy#getEnforcedFactors()}.
      */
-    boolean isEnforcedForSite(String siteKey);
+    String getFactorType();
 
     /**
-     * @return {@code true} if this factor enforces enrollment on at least one site. Used on the
+     * @param siteKey the JCR site key (never {@code null})
+     * @return {@code true} if this factor is enabled for the site (per-site activation;
+     * enforcement is global — see {@link MfaGlobalPolicy})
+     */
+    boolean isEnabledForSite(String siteKey);
+
+    /**
+     * @return {@code true} if this factor is enabled on at least one site. Used on the
      * no-resolvable-site code path of the gate, where a per-site decision is not possible.
      */
-    boolean isAnySiteEnforced();
+    boolean isAnySiteEnabled();
+
+    /**
+     * @param userId the user identifier (never {@code null})
+     * @return {@code true} if the user has this factor configured (enrolled in TOTP, has a
+     * WebAuthn credential, ...). Used for the cross-factor "at least one enforced factor
+     * configured" decision.
+     */
+    boolean isConfiguredForUser(String userId);
 
     /**
      * @param siteKey the JCR site key (never {@code null})

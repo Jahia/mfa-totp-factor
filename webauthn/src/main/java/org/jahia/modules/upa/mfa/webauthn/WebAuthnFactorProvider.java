@@ -3,17 +3,27 @@ package org.jahia.modules.upa.mfa.webauthn;
 import org.apache.commons.lang3.StringUtils;
 import org.jahia.modules.upa.mfa.MfaException;
 import org.jahia.modules.upa.mfa.MfaFactorProvider;
+import org.jahia.modules.upa.mfa.MfaService;
+import org.jahia.modules.upa.mfa.MfaSession;
 import org.jahia.modules.upa.mfa.PreparationContext;
 import org.jahia.modules.upa.mfa.VerificationContext;
+import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
 import org.jahia.services.usermanager.JahiaGroupManagerService;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Phishing-resistant WebAuthn / FIDO2 second factor (W3C WebAuthn Level 2).
@@ -47,6 +57,11 @@ public class WebAuthnFactorProvider implements MfaFactorProvider {
     private WebAuthnSiteSettingsStore siteSettingsStore;
     private WebAuthnAuditLog auditLog;
     private JahiaGroupManagerService groupManagerService;
+    private MfaGlobalPolicy globalPolicy;
+    private MfaService mfaService;
+
+    /** Every factor's per-user configuration view, for the cross-factor "at least one" decision. */
+    private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
 
     @Reference
     public void setWebAuthnService(WebAuthnService webAuthnService) { this.webAuthnService = webAuthnService; }
@@ -62,6 +77,19 @@ public class WebAuthnFactorProvider implements MfaFactorProvider {
 
     @Reference
     public void setGroupManagerService(JahiaGroupManagerService groupManagerService) { this.groupManagerService = groupManagerService; }
+
+    @Reference
+    public void setGlobalPolicy(MfaGlobalPolicy globalPolicy) { this.globalPolicy = globalPolicy; }
+
+    @Reference
+    public void setMfaService(MfaService mfaService) { this.mfaService = mfaService; }
+
+    @Reference(service = MfaSiteProvider.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC)
+    public void bindSiteProvider(MfaSiteProvider provider) { siteProviders.add(provider); }
+
+    public void unbindSiteProvider(MfaSiteProvider provider) { siteProviders.remove(provider); }
 
     @Override
     public String getFactorType() {
@@ -83,10 +111,7 @@ public class WebAuthnFactorProvider implements MfaFactorProvider {
                 logger.debug("WebAuthn skipped for user {} (not in any policy group on '{}')", userId, siteKey);
                 return new WebAuthnPreparationResult(true);
             }
-            if (!isRegistered(userId)) {
-                return prepareUnregistered(userId, siteKey, settings);
-            }
-            return startAssertion(userId);
+            return prepareForSite(preparationContext, userId, siteKey);
         }
 
         // No site context → require a registered user.
@@ -96,31 +121,122 @@ public class WebAuthnFactorProvider implements MfaFactorProvider {
         return startAssertion(userId);
     }
 
-    private Serializable prepareUnregistered(String userId, String siteKey,
-                                             WebAuthnSiteSettingsStore.WebAuthnSiteSettings settings)
+    /**
+     * The site-scoped decision once the site has WebAuthn enabled and the user is in scope.
+     * Enforcement is GLOBAL ({@link MfaGlobalPolicy}); a user must satisfy it with AT LEAST ONE
+     * of the enforced factors — the others skip (mirrors {@code TotpFactorProvider}).
+     */
+    private Serializable prepareForSite(PreparationContext preparationContext, String userId, String siteKey)
             throws MfaException {
-        if (!settings.isEnforced()) {
+        boolean registered = isRegistered(userId);
+        if (!globalPolicy.isEnforced(FACTOR_TYPE)) {
+            if (!registered) {
+                logger.debug("WebAuthn skipped for user {} (not registered, factor not globally enforced)", userId);
+                return new WebAuthnPreparationResult(true);
+            }
+            return startAssertion(userId);
+        }
+        if (anotherEnforcedFactorVerified(preparationContext)) {
+            logger.debug("WebAuthn skipped for user {} (another enforced factor already verified)", userId);
             return new WebAuthnPreparationResult(true);
         }
-        long graceDays = settings.getGraceDays();
-        if (graceDays <= 0) {
-            auditLog.recordEvent("registrationRequired", "denied", userId, siteKey, "noGrace");
-            throw new MfaException(ERROR_REGISTRATION_REQUIRED, "user", userId);
+        if (registered) {
+            return startAssertion(userId);
         }
-        long now = System.currentTimeMillis();
-        long graceStart;
-        try {
-            graceStart = credentialStore.getOrStartGraceMillis(userId, now);
-        } catch (RepositoryException e) {
-            logger.warn("Failed to read WebAuthn grace state for {}: {}", userId, e.getMessage());
-            throw new MfaException(ERROR_INTERNAL);
-        }
-        long graceMillis = graceDays * 24L * 60L * 60L * 1000L;
-        if ((now - graceStart) < graceMillis) {
+        if (anotherEnforcedFactorConfigured(userId)) {
+            logger.debug("WebAuthn skipped for user {} (another enforced factor is configured)", userId);
             return new WebAuthnPreparationResult(true);
         }
-        auditLog.recordEvent("registrationRequired", "denied", userId, siteKey, "graceExpired");
-        throw new MfaException(ERROR_REGISTRATION_REQUIRED, "user", userId);
+        return prepareNoEnforcedFactor(userId, siteKey);
+    }
+
+    /**
+     * The user has NONE of the globally enforced factors configured: allow sign-in during the
+     * global grace window, then block with {@code registration_required} carrying the factors
+     * the user may enroll inline.
+     */
+    private Serializable prepareNoEnforcedFactor(String userId, String siteKey) throws MfaException {
+        long graceDays = globalPolicy.getGraceDays();
+        if (graceDays > 0) {
+            long now = System.currentTimeMillis();
+            long graceStart;
+            try {
+                graceStart = credentialStore.getOrStartGraceMillis(userId, now);
+            } catch (RepositoryException e) {
+                logger.warn("Failed to read WebAuthn grace state for {}: {}", userId, e.getMessage());
+                throw new MfaException(ERROR_INTERNAL);
+            }
+            if ((now - graceStart) < graceDays * 24L * 60L * 60L * 1000L) {
+                return new WebAuthnPreparationResult(true);
+            }
+        }
+        auditLog.recordEvent("registrationRequired", "denied", userId, siteKey,
+                graceDays > 0 ? "graceExpired" : "noGrace");
+        throw new MfaException(ERROR_REGISTRATION_REQUIRED, "user", userId,
+                "enrollableFactors", enrollableFactorsForSite(siteKey));
+    }
+
+    /** Whether another globally enforced factor is already verified in the current MFA session. */
+    private boolean anotherEnforcedFactorVerified(PreparationContext preparationContext) {
+        HttpServletRequest request = preparationContext.getHttpServletRequest();
+        if (request == null) {
+            return false;
+        }
+        MfaSession session = mfaService.getMfaSession(request);
+        if (session == null) {
+            return false;
+        }
+        for (String factor : globalPolicy.getEnforcedFactors()) {
+            if (!FACTOR_TYPE.equals(factor) && session.isFactorVerified(factor)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the user has another globally enforced factor configured (via the sibling
+     * {@code MfaSiteProvider}s). A provider that cannot answer fails CLOSED for sign-in.
+     */
+    private boolean anotherEnforcedFactorConfigured(String userId) throws MfaException {
+        for (MfaSiteProvider provider : siteProviders) {
+            String type = provider.getFactorType();
+            if (FACTOR_TYPE.equals(type) || !globalPolicy.isEnforced(type)) {
+                continue;
+            }
+            try {
+                if (provider.isConfiguredForUser(userId)) {
+                    return true;
+                }
+            } catch (RuntimeException e) {
+                logger.warn("Failed to read {} configuration state for user {}: {}", type, userId, e.getMessage());
+                throw new MfaException(ERROR_INTERNAL);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The factors offered for inline enrollment on {@code siteKey}: the globally enforced factors
+     * that are enabled on this site. A provider that cannot answer is simply not offered.
+     */
+    private String enrollableFactorsForSite(String siteKey) {
+        List<String> offered = new ArrayList<>();
+        for (String factor : globalPolicy.getEnforcedFactors()) {
+            for (MfaSiteProvider provider : siteProviders) {
+                if (!factor.equals(provider.getFactorType())) {
+                    continue;
+                }
+                try {
+                    if (provider.isEnabledForSite(siteKey)) {
+                        offered.add(factor);
+                    }
+                } catch (RuntimeException e) {
+                    logger.warn("Could not evaluate {} availability on site {}: {}", factor, siteKey, e.getMessage());
+                }
+            }
+        }
+        return String.join(",", offered);
     }
 
     private Serializable startAssertion(String userId) throws MfaException {

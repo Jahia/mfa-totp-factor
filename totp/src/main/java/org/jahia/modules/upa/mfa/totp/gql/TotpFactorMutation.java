@@ -17,6 +17,7 @@ import org.jahia.modules.upa.mfa.gql.Result;
 import org.jahia.modules.upa.mfa.totp.TotpAuditLog;
 import org.jahia.modules.upa.mfa.totp.TotpEnrollmentState;
 import org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter;
+import org.jahia.modules.upa.mfa.totp.TotpPreparationResult;
 import org.jahia.modules.upa.mfa.totp.TotpService;
 import org.jahia.modules.upa.mfa.totp.TotpSiteSettingsStore;
 import org.jahia.modules.upa.mfa.totp.TotpUserStore;
@@ -309,7 +310,9 @@ public class TotpFactorMutation {
         HttpServletRequest request = ContextUtil.getHttpServletRequest(environment.getGraphQlContext());
         HttpServletResponse response = ContextUtil.getHttpServletResponse(environment.getGraphQlContext());
         MfaSession session = mfaService.prepareFactor(FACTOR_TYPE, request, response);
-        return new TotpPreparation(session);
+        Object prep = session.getOrCreateFactorState(FACTOR_TYPE).getPreparationResult();
+        boolean skipped = prep instanceof TotpPreparationResult && ((TotpPreparationResult) prep).isSkipped();
+        return new TotpPreparation(session, skipped);
     }
 
     @GraphQLField
