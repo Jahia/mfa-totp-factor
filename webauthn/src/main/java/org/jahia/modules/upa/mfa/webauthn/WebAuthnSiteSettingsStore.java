@@ -78,6 +78,22 @@ public class WebAuthnSiteSettingsStore {
         });
     }
 
+    /**
+     * Whether at least one site has WebAuthn {@code enabled + enforced}. Used by the shared
+     * {@code /cms/login} gate on its no-resolvable-site code path: that endpoint authenticates
+     * globally, so a single enforcing site makes it a second-factor bypass vector.
+     */
+    public boolean isAnySiteEnforcing() throws RepositoryException {
+        return Boolean.TRUE.equals(JCRTemplate.getInstance().doExecuteWithSystemSession(session -> {
+            javax.jcr.query.Query query = session.getWorkspace().getQueryManager().createQuery(
+                    "SELECT * FROM [" + MIXIN_SITE_SETTINGS + "] WHERE [" + PROP_ENABLED + "] = true AND ["
+                            + PROP_ENFORCED + "] = true",
+                    javax.jcr.query.Query.JCR_SQL2);
+            query.setLimit(1);
+            return query.execute().getNodes().hasNext();
+        }));
+    }
+
     private static List<String> readGroups(JCRNodeWrapper siteNode) throws RepositoryException {
         List<String> groups = new ArrayList<>();
         if (!siteNode.hasProperty(PROP_ENABLED_GROUPS)) {

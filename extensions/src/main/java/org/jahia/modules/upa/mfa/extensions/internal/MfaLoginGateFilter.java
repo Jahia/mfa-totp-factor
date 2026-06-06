@@ -1,15 +1,17 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions.internal;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jahia.bin.filters.AbstractServletFilter;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
@@ -24,20 +26,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
- * Gates Jahia's legacy login endpoint ({@code /cms/login}) while TOTP enrollment is enforced.
+ * Gates Jahia's legacy login endpoint ({@code /cms/login}) while ANY MFA factor enforces enrollment.
  * <p>
- * The MFA challenge runs in UPA's GraphQL {@code initiate} flow (used by the TOTP login UI) —
+ * The MFA challenge runs in UPA's GraphQL {@code initiate} flow (used by the factor login UI) —
  * but {@code /cms/login} authenticates through Jahia's classic username/password valve and
  * never consults MFA factors. On a site that <i>enforces</i> enrollment, that endpoint is
  * therefore a complete second-factor bypass. This filter closes it:
  * <ul>
  *   <li>requests carrying a site context (the {@code site} request parameter or the
- *       {@code siteKey} request attribute) are gated when THAT site has TOTP
+ *       {@code siteKey} request attribute) are gated when THAT site has a factor
  *       {@code enabled + enforced};</li>
  *   <li>requests with no site context (the common case for {@code /cms/login}) are gated when
  *       ANY site enforces enrollment — the endpoint authenticates globally, so a single
@@ -47,13 +50,17 @@ import java.util.regex.Pattern;
  *       VPN range).</li>
  * </ul>
  * <p>
+ * The filter is factor-agnostic: it discovers enforcement state through every registered
+ * {@link MfaSiteProvider} (TOTP, WebAuthn, ...) and gates when any of them reports enforcement.
+ * It therefore has no compile-time dependency on any individual factor module.
+ * <p>
  * The client IP is taken from the FIRST entry of the {@code X-Forwarded-For} header when
  * present (the original client, by convention), falling back to the socket address.
  * <b>Trust caveat:</b> {@code X-Forwarded-For} is client-spoofable — only enable this gate
  * behind a reverse proxy that overwrites (or sanitizes) the header, otherwise an attacker can
  * impersonate a whitelisted IP with a single forged header.
  * <p>
- * Configuration (PID {@code org.jahia.modules.totp}, hot-reloaded via {@code @Modified}):
+ * Configuration (PID {@code org.jahia.modules.mfa.extensions}, hot-reloaded via {@code @Modified}):
  * <ul>
  *   <li>{@code loginGate.enabled} — master switch, default {@code false}. Deliberately opt-in:
  *       enabling the gate with an empty whitelist locks EVERYONE out of {@code /cms/login}
@@ -65,14 +72,15 @@ import java.util.regex.Pattern;
  * Registered as an OSGi service of type {@link AbstractServletFilter}: Jahia's
  * {@code CompositeFilter} (mapped at {@code /*} in front of the servlet dispatch) picks it up,
  * so a {@code 403} here fires BEFORE the authentication valve ever sees the credentials — no
- * session is created for a blocked request. JCR read errors fail <b>closed</b> (block): this
- * is an access-control decision, and if the repository is unhealthy the login could not
- * complete anyway.
+ * session is created for a blocked request. A provider that cannot answer (e.g. an unhealthy
+ * repository) throws, and the gate fails <b>closed</b> (block): this is an access-control
+ * decision, and if the backend is unhealthy the login could not complete anyway.
  */
-@Component(service = AbstractServletFilter.class, immediate = true, configurationPid = "org.jahia.modules.totp")
-public class TotpLoginGateFilter extends AbstractServletFilter {
+@Component(service = AbstractServletFilter.class, immediate = true,
+        configurationPid = "org.jahia.modules.mfa.extensions")
+public class MfaLoginGateFilter extends AbstractServletFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(TotpLoginGateFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(MfaLoginGateFilter.class);
 
     static final String CONFIG_GATE_ENABLED = "loginGate.enabled";
     static final String CONFIG_GATE_WHITELIST = "loginGate.ipWhitelist";
@@ -87,26 +95,35 @@ public class TotpLoginGateFilter extends AbstractServletFilter {
     /** IPv6 literal (possibly v4-mapped). The ':' requirement rules out hostnames — labels cannot contain it. */
     private static final Pattern IPV6_PATTERN = Pattern.compile("[0-9a-fA-F:.]*:[0-9a-fA-F:.]*");
 
-    /** How long the "is any site enforcing?" answer is reused before re-querying the JCR. */
+    /** How long the "is any site enforcing?" answer is reused before re-querying the providers. */
     private static final long ENFORCING_CACHE_MILLIS = 60_000L;
 
     private final AtomicBoolean gateEnabled = new AtomicBoolean(false);
     private final AtomicReference<List<String>> whitelist = new AtomicReference<>(Collections.emptyList());
     private final AtomicReference<EnforcingCache> enforcingCache = new AtomicReference<>();
 
-    private TotpSiteSettingsStore siteSettingsStore;
+    /** Every registered factor's enforcement view. Read-heavy on the request path → copy-on-write. */
+    private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
 
-    public TotpLoginGateFilter() {
-        setFilterName("MfaTotpLoginGateFilter");
+    public MfaLoginGateFilter() {
+        setFilterName("MfaLoginGateFilter");
         setUrlPatterns(new String[]{"/cms/login", "/cms/login/*"});
         // Run early among module filters: the whole point is to fire before anything
         // credential-related happens.
         setOrder(-1f);
     }
 
-    @Reference
-    public void setSiteSettingsStore(TotpSiteSettingsStore siteSettingsStore) {
-        this.siteSettingsStore = siteSettingsStore;
+    @Reference(service = MfaSiteProvider.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC)
+    public void bindSiteProvider(MfaSiteProvider provider) {
+        siteProviders.add(provider);
+        enforcingCache.set(null); // a new factor may change the global enforcement answer
+    }
+
+    public void unbindSiteProvider(MfaSiteProvider provider) {
+        siteProviders.remove(provider);
+        enforcingCache.set(null);
     }
 
     @Activate
@@ -118,7 +135,7 @@ public class TotpLoginGateFilter extends AbstractServletFilter {
         gateEnabled.set(enabled);
         whitelist.set(entries);
         enforcingCache.set(null); // settings may have changed semantics; re-query on next hit
-        logger.info("MFA TOTP /cms/login gate {} ({} whitelist entr{})",
+        logger.info("MFA /cms/login gate {} ({} whitelist entr{})",
                 enabled ? "ENABLED" : "disabled", entries.size(), entries.size() == 1 ? "y" : "ies");
     }
 
@@ -171,28 +188,38 @@ public class TotpLoginGateFilter extends AbstractServletFilter {
             chain.doFilter(request, response);
             return;
         }
-        logger.warn("Blocked /cms/login access from {} (TOTP enrollment enforced and IP not whitelisted)",
+        logger.warn("Blocked /cms/login access from {} (MFA enrollment enforced and IP not whitelisted)",
                 clientIp);
         ((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN);
     }
 
     /**
      * Whether this request must be gated: the request's site (when identifiable) enforces
-     * enrollment, or — with no site context — any site does. Fails CLOSED on JCR errors.
+     * enrollment via some factor, or — with no site context — any site does. Fails CLOSED when a
+     * provider cannot answer (throws).
      */
     private boolean isGated(HttpServletRequest request) {
-        try {
-            String siteKey = resolveSiteKey(request);
-            if (siteKey != null) {
-                TotpSiteSettingsStore.TotpSiteSettings settings = siteSettingsStore.load(siteKey);
-                return settings.isEnabled() && settings.isEnforced();
-            }
-            return isAnySiteEnforcingCached();
-        } catch (RepositoryException e) {
-            logger.error("Could not evaluate the TOTP /cms/login gate (failing CLOSED, request blocked). "
-                    + "Check repository health. Cause: {}", e.getMessage());
-            return true;
+        String siteKey = resolveSiteKey(request);
+        if (siteKey != null) {
+            return anyEnforcesForSite(siteKey);
         }
+        return isAnySiteEnforcingCached();
+    }
+
+    /** Gated if any factor enforces enrollment for {@code siteKey}; a throwing provider fails CLOSED. */
+    private boolean anyEnforcesForSite(String siteKey) {
+        for (MfaSiteProvider provider : siteProviders) {
+            try {
+                if (provider.isEnforcedForSite(siteKey)) {
+                    return true;
+                }
+            } catch (RuntimeException e) {
+                logger.error("MFA /cms/login gate: provider {} failed for site '{}' (failing CLOSED, request "
+                        + "blocked). Cause: {}", provider.getClass().getName(), siteKey, e.getMessage());
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The {@code site} parameter (validated) or the {@code siteKey} attribute, else {@code null}. */
@@ -208,17 +235,34 @@ public class TotpLoginGateFilter extends AbstractServletFilter {
         return null;
     }
 
-    private boolean isAnySiteEnforcingCached() throws RepositoryException {
+    private boolean isAnySiteEnforcingCached() {
         long now = System.currentTimeMillis();
         EnforcingCache cached = enforcingCache.get();
         if (cached != null && (now - cached.timestamp) < ENFORCING_CACHE_MILLIS) {
             return cached.enforcing;
         }
-        // The gate sits on an unauthenticated endpoint: cache the JCR answer briefly so a
-        // login brute-force cannot be amplified into a JCR query flood.
-        boolean enforcing = siteSettingsStore.isAnySiteEnforcing();
+        // The gate sits on an unauthenticated endpoint: cache the answer briefly so a login
+        // brute-force cannot be amplified into a query flood. A fail-closed result is cached too —
+        // brief over-blocking during a backend outage is the safe direction for an access gate.
+        boolean enforcing = computeAnySiteEnforcing();
         enforcingCache.set(new EnforcingCache(now, enforcing));
         return enforcing;
+    }
+
+    /** True if any factor enforces enrollment on at least one site; a throwing provider fails CLOSED. */
+    private boolean computeAnySiteEnforcing() {
+        for (MfaSiteProvider provider : siteProviders) {
+            try {
+                if (provider.isAnySiteEnforced()) {
+                    return true;
+                }
+            } catch (RuntimeException e) {
+                logger.error("MFA /cms/login gate: provider {} failed the global enforcement check (failing "
+                        + "CLOSED, request blocked). Cause: {}", provider.getClass().getName(), e.getMessage());
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -330,7 +374,7 @@ public class TotpLoginGateFilter extends AbstractServletFilter {
         }
     }
 
-    /** Immutable timestamped snapshot of the "any site enforcing?" JCR answer. */
+    /** Immutable timestamped snapshot of the "any site enforcing?" answer. */
     private static final class EnforcingCache {
         private final long timestamp;
         private final boolean enforcing;

@@ -1,4 +1,4 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions.internal;
 
 import org.junit.Test;
 
@@ -6,9 +6,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.jahia.modules.upa.mfa.totp.TotpLoginGateFilter.isIpLiteral;
-import static org.jahia.modules.upa.mfa.totp.TotpLoginGateFilter.isWhitelisted;
-import static org.jahia.modules.upa.mfa.totp.TotpLoginGateFilter.parseWhitelist;
+import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isIpLiteral;
+import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isWhitelisted;
+import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.parseWhitelist;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -18,7 +18,7 @@ import static org.junit.Assert.assertTrue;
  * match a configured address or CIDR block. The matcher must never DNS-resolve the
  * attacker-controlled header value, and mixed IPv4/IPv6 comparisons must never match.
  */
-public class TotpLoginGateFilterTest {
+public class MfaLoginGateFilterTest {
 
     // --- Whitelist parsing -------------------------------------------------------------
 
