@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -61,15 +60,15 @@ public class WebAuthnService {
                 .id(config.getRpId())
                 .name(config.getRpName())
                 .build();
-        RelyingParty.RelyingPartyBuilder builder = RelyingParty.builder()
+        // Origins are ALWAYS set explicitly: WebAuthnConfig derives {https,http}://<rpId> when
+        // none are configured — the library default would be https-only and reject plain-http
+        // localhost deployments at finish time ("incorrect origin").
+        return RelyingParty.builder()
                 .identity(identity)
                 .credentialRepository(credentialStore)
-                .allowOriginPort(true);
-        Set<String> origins = config.getOrigins();
-        if (!origins.isEmpty()) {
-            builder.origins(origins);
-        }
-        return builder.build();
+                .allowOriginPort(true)
+                .origins(config.getOrigins())
+                .build();
     }
 
     // --- Registration (dashboard self-service, while authenticated) ----------------------
