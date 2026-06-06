@@ -1,4 +1,4 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -68,19 +68,11 @@ public class BackupCodesTest {
         List<String> plaintext = backupCodes.generate();
         String hash = backupCodes.hash(plaintext.get(0));
 
-        StringBuilder huge = new StringBuilder(TotpService.MAX_CODE_LENGTH + 1024);
-        for (int i = 0; i < TotpService.MAX_CODE_LENGTH + 1024; i++) {
+        StringBuilder huge = new StringBuilder(BackupCodes.MAX_CODE_LENGTH + 1024);
+        for (int i = 0; i < BackupCodes.MAX_CODE_LENGTH + 1024; i++) {
             huge.append('A');
         }
         Optional<Integer> idx = backupCodes.verifyAndIndex(Collections.singletonList(hash), huge.toString());
         assertFalse(idx.isPresent());
-    }
-
-    @Test
-    public void looksLikeBackupCode_detectsTotpVsBackup() {
-        assertFalse(BackupCodes.looksLikeBackupCode("123456"));
-        assertTrue(BackupCodes.looksLikeBackupCode("ABCDE12345"));
-        assertTrue(BackupCodes.looksLikeBackupCode("12345"));
-        assertTrue(BackupCodes.looksLikeBackupCode("1234567"));
     }
 }

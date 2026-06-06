@@ -20,7 +20,7 @@
     </description>
 
     <properties>
-        <jahia-depends>user-password-authentication-api,graphql-dxm-provider</jahia-depends>
+        <jahia-depends>user-password-authentication-api,graphql-dxm-provider,mfa-factors-extensions</jahia-depends>
         <jahia-module-type>system</jahia-module-type>
         <upa.version>0.3.0-SNAPSHOT</upa.version>
         <maven.compiler.source>11</maven.compiler.source>
@@ -44,6 +44,12 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jahia.community</groupId>
+            <artifactId>mfa-factors-extensions</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>user-password-authentication-api</artifactId>
@@ -179,6 +185,7 @@
                             org.slf4j;version="[1.7,2)",
                             org.jahia.modules.upa.mfa,
                             org.jahia.modules.upa.mfa.gql,
+                            org.jahia.modules.upa.mfa.extensions,
                             *
                         </Import-Package>
                     </instructions>

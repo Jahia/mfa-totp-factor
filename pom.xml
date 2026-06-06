@@ -11,14 +11,15 @@
     </parent>
 
     <groupId>org.jahia.community</groupId>
-    <artifactId>mfa-factors-parent</artifactId>
+    <artifactId>mfa-community-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>UPA - MFA factors (root)</name>
+    <name>UPA - MFA community (root)</name>
     <packaging>pom</packaging>
-    <description>Root of the multi-module project: the MFA factor OSGi bundles (TOTP, WebAuthn) and
-        their shared login-flow UI (JS-SDK module).</description>
+    <description>Root of the multi-module project: the shared extensions bundle, the MFA factor OSGi
+        bundles (TOTP, WebAuthn) and their shared login-flow UI (JS-SDK module).</description>
 
     <modules>
+        <module>extensions</module>
         <module>totp</module>
         <module>webauthn</module>
         <module>login-ui</module>

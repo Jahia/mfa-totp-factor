@@ -5,6 +5,7 @@ import org.jahia.modules.upa.mfa.MfaException;
 import org.jahia.modules.upa.mfa.MfaFactorProvider;
 import org.jahia.modules.upa.mfa.PreparationContext;
 import org.jahia.modules.upa.mfa.VerificationContext;
+import org.jahia.modules.upa.mfa.extensions.BackupCodes;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -205,7 +206,7 @@ public class TotpFactorProvider implements MfaFactorProvider {
             throw new MfaException(ERROR_NOT_ENROLLED, "user", userId);
         }
 
-        boolean backupCode = BackupCodes.looksLikeBackupCode(submitted);
+        boolean backupCode = TotpService.looksLikeBackupCode(submitted);
         boolean ok = backupCode
                 ? verifyBackupCode(userId, submitted)
                 : verifyTotpCode(userId, submitted);

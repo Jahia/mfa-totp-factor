@@ -1,4 +1,4 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions;
 
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Backup code generation and verification.
+ * Backup code generation and verification — shared across MFA factors (TOTP, WebAuthn, ...).
  * <p>
  * Backup codes are random alphanumeric strings (ambiguous characters {@code 0OIl1} excluded)
  * shown to the user exactly once at enrollment confirmation. They are persisted as
@@ -34,6 +34,14 @@ public class BackupCodes {
 
     public static final int CODE_COUNT = 10;
     public static final int CODE_LENGTH = 10;
+
+    /**
+     * Maximum length of any user-supplied backup code accepted by {@link #verifyAndIndex}; an
+     * up-front cap that prevents CPU amplification through an over-long submitted value. Kept
+     * here (rather than referencing a factor constant) so this shared class has no dependency
+     * back on any individual factor module.
+     */
+    public static final int MAX_CODE_LENGTH = 32;
 
     /** Alphabet without ambiguous characters (0, O, I, l, 1). */
     private static final char[] ALPHABET =
@@ -91,7 +99,7 @@ public class BackupCodes {
             return Optional.empty();
         }
         // Up-front input length cap to prevent CPU amplification via a huge submitted code.
-        if (submitted.length() > TotpService.MAX_CODE_LENGTH) {
+        if (submitted.length() > MAX_CODE_LENGTH) {
             return Optional.empty();
         }
         String normalized = submitted.trim().toUpperCase();
@@ -151,26 +159,5 @@ public class BackupCodes {
         } catch (Exception e) {
             throw new IllegalStateException("PBKDF2 derivation failed", e);
         }
-    }
-
-    /**
-     * Pure-string heuristic: a 6-digit string is treated as a TOTP code,
-     * anything else as a potential backup code.
-     */
-    public static boolean looksLikeBackupCode(String submitted) {
-        if (submitted == null) {
-            return false;
-        }
-        String s = submitted.trim();
-        if (s.length() != TotpService.DIGITS) {
-            return true;
-        }
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) {
-                return true;
-            }
-        }
-        // exactly DIGITS digits -> TOTP code
-        return false;
     }
 }

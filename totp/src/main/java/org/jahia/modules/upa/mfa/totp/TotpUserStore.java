@@ -1,5 +1,6 @@
 package org.jahia.modules.upa.mfa.totp;
 
+import org.jahia.modules.upa.mfa.extensions.BackupCodes;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.content.decorator.JCRUserNode;

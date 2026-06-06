@@ -3,6 +3,7 @@ package org.jahia.modules.upa.mfa.totp;
 import org.jahia.modules.upa.mfa.MfaException;
 import org.jahia.modules.upa.mfa.MfaSessionContext;
 import org.jahia.modules.upa.mfa.VerificationContext;
+import org.jahia.modules.upa.mfa.extensions.BackupCodes;
 import org.junit.Before;
 import org.junit.Test;
 

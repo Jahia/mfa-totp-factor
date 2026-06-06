@@ -142,6 +142,14 @@ public class TotpServiceTest {
     }
 
     @Test
+    public void looksLikeBackupCode_detectsTotpVsBackup() {
+        assertFalse(TotpService.looksLikeBackupCode("123456"));
+        assertTrue(TotpService.looksLikeBackupCode("ABCDE12345"));
+        assertTrue(TotpService.looksLikeBackupCode("12345"));
+        assertTrue(TotpService.looksLikeBackupCode("1234567"));
+    }
+
+    @Test
     public void buildOtpauthUri_containsExpectedParams() {
         String uri = service.buildOtpauthUri("Jahia", "alice@example.com", "JBSWY3DPEHPK3PXP");
         assertNotNull(uri);

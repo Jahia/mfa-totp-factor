@@ -11,8 +11,8 @@ import org.jahia.modules.graphql.provider.dxm.osgi.annotations.GraphQLOsgiServic
 import org.jahia.modules.graphql.provider.dxm.util.ContextUtil;
 import org.jahia.modules.upa.mfa.MfaService;
 import org.jahia.modules.upa.mfa.MfaSession;
+import org.jahia.modules.upa.mfa.extensions.BackupCodes;
 import org.jahia.modules.upa.mfa.gql.Result;
-import org.jahia.modules.upa.mfa.totp.BackupCodes;
 import org.jahia.modules.upa.mfa.totp.TotpAuditLog;
 import org.jahia.modules.upa.mfa.totp.TotpEnrollmentState;
 import org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter;

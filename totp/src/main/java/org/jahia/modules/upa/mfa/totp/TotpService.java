@@ -131,6 +131,29 @@ public class TotpService {
     }
 
     /**
+     * Pure-string heuristic used to route a submitted second-factor code: a string of exactly
+     * {@link #DIGITS} digits is treated as a TOTP code, anything else as a potential backup code.
+     * Lives here (rather than on the shared {@code BackupCodes}) because it is TOTP-specific — it
+     * is keyed on the TOTP digit count.
+     */
+    public static boolean looksLikeBackupCode(String submitted) {
+        if (submitted == null) {
+            return false;
+        }
+        String s = submitted.trim();
+        if (s.length() != DIGITS) {
+            return true;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) {
+                return true;
+            }
+        }
+        // exactly DIGITS digits -> TOTP code
+        return false;
+    }
+
+    /**
      * Build the otpauth:// provisioning URI consumed by Google Authenticator-compatible apps.
      * <p>
      * NEVER log the returned URI — it contains the secret.
