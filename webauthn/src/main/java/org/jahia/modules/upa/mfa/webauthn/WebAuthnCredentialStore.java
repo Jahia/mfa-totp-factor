@@ -102,7 +102,16 @@ public class WebAuthnCredentialStore implements CredentialRepository {
             if (user == null || !user.isNodeType(MIXIN_USER_SETTINGS)) {
                 return false;
             }
-            return user.getNodes().hasNext();
+            // Only count actual credential nodes: user nodes have unrelated children
+            // (j:profile, preferences, ...) and the mixin survives a deleteAll() reset
+            // because it still carries the grace-window property.
+            NodeIterator it = user.getNodes();
+            while (it.hasNext()) {
+                if (it.nextNode().isNodeType(NT_CREDENTIAL)) {
+                    return true;
+                }
+            }
+            return false;
         }));
     }
 

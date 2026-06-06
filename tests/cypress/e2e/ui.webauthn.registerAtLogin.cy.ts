@@ -14,6 +14,7 @@
  * The Relying Party is repointed to rpId=jahia for the suite and restored in after().
  */
 import {deleteUser, jfaker} from '@jahia/cypress';
+import gql from 'graphql-tag';
 import {
     addVirtualAuthenticator,
     createSiteWithTotpLoginPage,
@@ -112,5 +113,76 @@ describe('WebAuthn inline registration at sign-in (UI)', () => {
         cy.location('pathname', {timeout: 30000}).should('not.contain', '/myLoginPage.html');
         cy.get('[data-testid="enroll-choose-webauthn"]').should('not.exist');
         cy.get('[data-testid="enroll-qr"]').should('not.exist');
+    });
+
+    it('offers enrollment again after an admin reset', () => {
+        // First pass: register inline as in the previous test.
+        addVirtualAuthenticator();
+        cy.visit(getTotpLoginPageURL(SITE_KEY));
+        cy.get('[data-testid="login-username"]', {timeout: 30000}).type(username);
+        cy.get('[data-testid="login-password"]').type(password);
+        cy.get('[data-testid="login-submit"]').click();
+        cy.get('[data-testid="enroll-choose-webauthn"]', {timeout: 30000}).click();
+        cy.get('[data-testid="enroll-webauthn-register"]', {timeout: 30000}).click();
+        cy.location('pathname', {timeout: 30000}).should('not.contain', '/myLoginPage.html');
+
+        // Real user nodes always carry unrelated children (preferences, files, ...). A fresh
+        // test user may have none, so recreate that shape explicitly — hasCredentials() must
+        // not mistake such children for credentials after the reset (the upaWebauthn mixin
+        // legitimately survives deleteAll because it still tracks the grace window).
+        cy.apollo({
+            query: gql`
+                query UserNodePath($query: String!) {
+                    jcr {
+                        nodesByQuery(query: $query) {
+                            nodes {
+                                path
+                            }
+                        }
+                    }
+                }
+            `,
+            variables: {query: `SELECT * FROM [jnt:user] WHERE localname() = '${username}'`},
+        }).then(resp => {
+            const userPath = resp.data.jcr.nodesByQuery.nodes[0].path as string;
+            cy.apollo({
+                mutation: gql`
+                    mutation AddUserChild($parent: String!) {
+                        jcr {
+                            addNode(parentPathOrId: $parent, name: "files", primaryNodeType: "jnt:folder") {
+                                uuid
+                            }
+                        }
+                    }
+                `,
+                variables: {parent: userPath},
+            });
+        });
+
+        // Admin recovery: wipe the user's credentials.
+        cy.apollo({
+            mutation: gql`
+                mutation ResetUser($userId: String!, $siteKey: String!) {
+                    upa {
+                        mfaFactors {
+                            webauthn {
+                                resetUserWebauthn(userId: $userId, siteKey: $siteKey)
+                            }
+                        }
+                    }
+                }
+            `,
+            variables: {userId: username, siteKey: SITE_KEY},
+        });
+
+        // The user must be offered enrollment again — NOT an unsatisfiable passkey
+        // assertion against zero stored credentials.
+        cy.logout();
+        cy.visit(getTotpLoginPageURL(SITE_KEY));
+        cy.get('[data-testid="login-username"]', {timeout: 30000}).type(username);
+        cy.get('[data-testid="login-password"]').type(password);
+        cy.get('[data-testid="login-submit"]').click();
+        cy.get('[data-testid="enroll-choose-webauthn"]', {timeout: 30000}).should('be.visible');
+        cy.get('[data-testid="webauthn-authenticate"]').should('not.exist');
     });
 });
