@@ -148,28 +148,38 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
             return null;
         }
         for (MfaSiteProvider provider : siteProviders) {
-            String url;
-            try {
-                url = login ? provider.getLoginUrl(siteKey) : provider.getLogoutUrl(siteKey);
-            } catch (RuntimeException e) {
-                logger.debug("Failed to read per-site MFA {} URL from {} for site {}: {}",
-                        login ? "login" : "logout", provider.getClass().getName(), siteKey, e.getMessage());
-                continue;
+            String url = safeUrlFrom(provider, siteKey, login);
+            if (url != null) {
+                return url;
             }
-            if (StringUtils.isBlank(url)) {
-                continue;
-            }
-            // Defense-in-depth open-redirect guard: stores validate on save, but values written
-            // before that guard existed (or via direct JCR tooling) must never be allowed to
-            // redirect the login flow off-site.
-            if (!MfaUrls.isSafeSiteRelativeUrl(url)) {
-                logger.warn("Ignoring unsafe per-site MFA {} URL on site {} (not a server-relative path)",
-                        login ? "login" : "logout", siteKey);
-                continue;
-            }
-            return url;
         }
         return null;
+    }
+
+    /**
+     * The safe per-site URL a single factor reports, or {@code null} when it reports nothing,
+     * throws (→ "no custom URL", Jahia default), or reports an unsafe value (open-redirect guard:
+     * stores validate on save, but values written before that guard existed — or via direct JCR
+     * tooling — must never be allowed to redirect the login flow off-site).
+     */
+    private String safeUrlFrom(MfaSiteProvider provider, String siteKey, boolean login) {
+        String url;
+        try {
+            url = login ? provider.getLoginUrl(siteKey) : provider.getLogoutUrl(siteKey);
+        } catch (RuntimeException e) {
+            logger.debug("Failed to read per-site MFA {} URL from {} for site {}: {}",
+                    login ? "login" : "logout", provider.getClass().getName(), siteKey, e.getMessage());
+            return null;
+        }
+        if (StringUtils.isBlank(url)) {
+            return null;
+        }
+        if (!MfaUrls.isSafeSiteRelativeUrl(url)) {
+            logger.warn("Ignoring unsafe per-site MFA {} URL on site {} (not a server-relative path)",
+                    login ? "login" : "logout", siteKey);
+            return null;
+        }
+        return url;
     }
 
     /**
