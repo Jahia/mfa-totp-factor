@@ -55,6 +55,33 @@ public class MfaFactorDirectory {
     }
 
     /**
+     * The factor types the user has configured, among the registered providers — scoped to the
+     * site when one is given (a factor disabled on the site cannot be used to verify there).
+     * Drives the login UI's factor chooser: offering an unconfigured factor is a dead end (its
+     * pick-one row defers to a configured sibling and the user lands on a different factor than
+     * the one they picked).
+     * <p>
+     * <b>Error contract:</b> a provider that cannot answer propagates its unchecked exception —
+     * the GraphQL layer surfaces it and the CLIENT falls back to the unfiltered list. That
+     * fallback is safe here (unlike {@link #hasAnyEnforcedFactorConfigured}): the chooser is
+     * cosmetic, verification stays enforced server-side either way.
+     */
+    public List<String> configuredFactorsForUser(String userId, String siteKey) {
+        List<String> result = new ArrayList<>();
+        for (MfaSiteProvider provider : siteProviders) {
+            String type = provider.getFactorType();
+            if (type == null || result.contains(type)) {
+                continue;
+            }
+            boolean usableOnSite = siteKey == null || siteKey.trim().isEmpty() || provider.isEnabledForSite(siteKey);
+            if (usableOnSite && provider.isConfiguredForUser(userId)) {
+                result.add(type);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
      * Whether the user has at least one globally enforced factor configured.
      * <p>
      * <b>Error contract:</b> a provider that cannot answer (unhealthy repository) propagates its

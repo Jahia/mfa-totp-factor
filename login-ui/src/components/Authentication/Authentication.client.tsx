@@ -9,7 +9,7 @@ import EnrollmentChooser from "./EnrollmentChooser.client";
 import TotpEnrollmentForm from "./TotpEnrollmentForm.client";
 import WebauthnRegistrationForm from "./WebauthnRegistrationForm.client";
 import type { Props } from "./types";
-import { redirect } from "../../services";
+import { redirect, sessionFactors } from "../../services";
 import FatalErrorScreen from "./FatalErrorScreen.client";
 import type { MfaError } from "../../services/common";
 
@@ -61,13 +61,32 @@ export default function Authentication({
     setEnrollFactor(null);
   };
 
-  const onLoginSuccess = ({ remainingFactors }: { username: string; remainingFactors: string[] }) => {
+  const onLoginSuccess = async ({ remainingFactors }: { username: string; remainingFactors: string[] }) => {
     setAvailableFactors(remainingFactors);
     if (remainingFactors.length === 1) {
       // Skip the chooser when there's only one option.
       setActiveFactor(remainingFactors[0]);
       setStep(Step.VERIFY);
+      return;
+    }
+    // Several factors are enabled platform-wide, but the chooser must only offer the ones THIS
+    // user configured: an unconfigured factor is a dead end (its pick-one row defers to a
+    // configured sibling, and the user lands on a different factor than the one they picked).
+    // On query failure fall back to the unfiltered list — the chooser is cosmetic, verification
+    // stays enforced server-side.
+    const configured = await sessionFactors(apiRoot);
+    const offer =
+      configured === null ? remainingFactors : remainingFactors.filter((f) => configured.includes(f));
+    if (offer.length === 0) {
+      // Nothing configured yet: walk the required factors — the first prepare routes to
+      // inline enrollment (enrollment_required), where the ENROLLMENT chooser takes over.
+      setActiveFactor(remainingFactors[0]);
+      setStep(Step.VERIFY);
+    } else if (offer.length === 1) {
+      setActiveFactor(offer[0]);
+      setStep(Step.VERIFY);
     } else {
+      setAvailableFactors(offer);
       setStep(Step.CHOOSE_FACTOR);
     }
   };

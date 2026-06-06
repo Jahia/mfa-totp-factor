@@ -9,5 +9,6 @@ export { default as enrollTotp } from "./enrollTotp";
 export { default as confirmEnrollTotp } from "./confirmEnrollTotp";
 export { default as startRegistrationWebauthn } from "./startRegistrationWebauthn";
 export { default as finishRegistrationWebauthn } from "./finishRegistrationWebauthn";
+export { default as sessionFactors } from "./sessionFactors";
 export { default as clear } from "./clear";
 export { default as redirect } from "./redirect";

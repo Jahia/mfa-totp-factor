@@ -103,7 +103,11 @@ trust level) and are not restricted, so an external SSO portal remains possible 
 
 Enforcement is **platform-wide**: `enforcedFactors` (PID `org.jahia.modules.mfa.extensions`)
 lists the factor types a user must satisfy — a user needs **at least one** of them configured
-and verifies **one** of them at sign-in (the chooser lets them pick; the others skip). A user
+and verifies **one** of them at sign-in (the chooser lets them pick; the others skip). The
+chooser only offers the factors the user actually **configured** (read post-password via the
+`mfaSessionFactors` GraphQL query, scoped to the session's own user) — with a single configured
+factor the chooser is skipped entirely; a skipped (drained) factor never satisfies pick-one for
+its siblings, so a real challenge always happens for users who own one. A user
 with **none** configured may still sign in during the global `graceDays` window (0–365, clamped;
 tracked per user from their first enforced sign-in attempt); after that, the login page walks
 them through **inline enrollment** (TOTP QR + code, or passkey registration) and signs them in

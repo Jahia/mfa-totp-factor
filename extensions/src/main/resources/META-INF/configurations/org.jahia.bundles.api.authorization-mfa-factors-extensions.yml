@@ -1,0 +1,7 @@
+---
+mfaExtensions:
+  grants:
+  - api: "graphql.Query.mfaSessionFactors"
+  - api: "graphql.MfaExtensionsSessionFactors"
+  auto_apply:
+  - always: "true"

@@ -21,8 +21,9 @@
     </description>
 
     <properties>
-        <jahia-depends>graphql-dxm-provider</jahia-depends>
+        <jahia-depends>user-password-authentication-api,graphql-dxm-provider</jahia-depends>
         <jahia-module-type>system</jahia-module-type>
+        <upa.version>0.3.0-SNAPSHOT</upa.version>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <yarn.arguments>build:production</yarn.arguments>
@@ -44,6 +45,12 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>user-password-authentication-api</artifactId>
+            <version>${upa.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>graphql-dxm-provider</artifactId>
@@ -154,6 +161,8 @@
                             graphql.schema;version="[21.5,22)",
                             org.jahia.modules.graphql.provider.dxm;version="[3.4,4)",
                             org.jahia.modules.graphql.provider.dxm.security;version="[3.4,4)",
+                            org.jahia.modules.graphql.provider.dxm.util;version="[3.4,4)",
+                            org.jahia.modules.upa.mfa,
                             org.jahia.osgi,
                             org.osgi.service.cm,
                             org.jahia.services,
