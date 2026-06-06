@@ -97,7 +97,6 @@
                             ${jahia.plugin.projectPackageImport},
                             org.jahia.services,
                             org.jahia.services.render,
-                            org.jahia.settings,
                             org.jahia.params.valves,
                             org.jahia.bin.filters,
                             javax.servlet,

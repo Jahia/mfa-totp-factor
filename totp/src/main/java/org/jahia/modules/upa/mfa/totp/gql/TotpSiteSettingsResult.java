@@ -69,14 +69,14 @@ public class TotpSiteSettingsResult {
 
     @GraphQLField
     @GraphQLName("loginUrl")
-    @GraphQLDescription("Per-site custom login page URL used by MfaTotpLoginLogoutProvider; null = fall back to global config.")
+    @GraphQLDescription("Per-site custom login page URL used by the shared MfaLoginLogoutProvider; null = fall back to global config.")
     public String getLoginUrl() {
         return loginUrl;
     }
 
     @GraphQLField
     @GraphQLName("logoutUrl")
-    @GraphQLDescription("Per-site custom logout page URL used by MfaTotpLoginLogoutProvider; null = fall back to global config.")
+    @GraphQLDescription("Per-site custom logout page URL used by the shared MfaLoginLogoutProvider; null = fall back to global config.")
     public String getLogoutUrl() {
         return logoutUrl;
     }

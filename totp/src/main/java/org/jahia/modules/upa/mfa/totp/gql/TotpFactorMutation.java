@@ -12,6 +12,7 @@ import org.jahia.modules.graphql.provider.dxm.util.ContextUtil;
 import org.jahia.modules.upa.mfa.MfaService;
 import org.jahia.modules.upa.mfa.MfaSession;
 import org.jahia.modules.upa.mfa.extensions.BackupCodes;
+import org.jahia.modules.upa.mfa.extensions.MfaUrls;
 import org.jahia.modules.upa.mfa.gql.Result;
 import org.jahia.modules.upa.mfa.totp.TotpAuditLog;
 import org.jahia.modules.upa.mfa.totp.TotpEnrollmentState;
@@ -511,8 +512,8 @@ public class TotpFactorMutation {
         String cleanLoginUrl;
         String cleanLogoutUrl;
         try {
-            cleanLoginUrl = TotpSiteSettingsStore.validateSiteRelativeUrl(loginUrl);
-            cleanLogoutUrl = TotpSiteSettingsStore.validateSiteRelativeUrl(logoutUrl);
+            cleanLoginUrl = MfaUrls.validateSiteRelativeUrl(loginUrl);
+            cleanLogoutUrl = MfaUrls.validateSiteRelativeUrl(logoutUrl);
         } catch (IllegalArgumentException e) {
             logger.warn("Rejected TOTP site settings for {}: invalid login/logout URL submitted by {}",
                     siteKey, currentUserName());

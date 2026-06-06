@@ -1,6 +1,8 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions.internal;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
+import org.jahia.modules.upa.mfa.extensions.MfaUrls;
 import org.jahia.params.valves.LoginUrlProvider;
 import org.jahia.params.valves.LogoutUrlProvider;
 import org.jahia.services.SpringContextSingleton;
@@ -10,31 +12,37 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Routes a site's login (and, optionally, logout) through the TOTP MFA login UI.
+ * Routes a site's login (and, optionally, logout) through the shared MFA login UI — the page that
+ * renders username/password and then lets the user choose between the enrolled factors (TOTP,
+ * WebAuthn, ...). This is the factor-agnostic "login provider" form shown in the
+ * {@code OSGi-modules-samples/login-provider} example, generalized so it serves the whole MFA
+ * factor family rather than any single factor.
  * <p>
  * Jahia consults registered {@link LoginUrlProvider}s from its authentication valve: an
  * unauthenticated user who hits a protected (HTTP&nbsp;401) resource is redirected to a custom
  * login page if a provider supplies one. {@link LogoutUrlProvider} works the same way for
- * sign-out. This single component implements <b>both</b> SPIs (the "login/logout" provider form
- * shown in the {@code OSGi-modules-samples/login-provider} example).
+ * sign-out. This single component implements <b>both</b> SPIs.
  * <p>
  * The target URLs are resolved <b>per request</b>, with a per-site override taking precedence
  * over a global default:
  * <ol>
- *   <li><b>per-site</b> — the {@code loginUrl} / {@code logoutUrl} stored on the
- *       {@code upaTotp:siteSettings} mixin of the request's site (set from the per-site
- *       administration UI); falling back to</li>
- *   <li><b>global</b> — the {@code loginUrl} / {@code logoutUrl} keys of the module's OSGi
- *       configuration (PID {@code org.jahia.modules.totp}); falling back to</li>
+ *   <li><b>per-site</b> — the first non-blank, safe {@code loginUrl} / {@code logoutUrl} reported
+ *       by any registered {@link MfaSiteProvider} for the request's site (each factor surfaces its
+ *       own per-site administration values through the SPI); falling back to</li>
+ *   <li><b>global</b> — the {@code loginUrl} / {@code logoutUrl} keys of the shared OSGi
+ *       configuration (PID {@code org.jahia.modules.mfa.extensions}); falling back to</li>
  *   <li><b>none</b> — {@code null}, i.e. Jahia's default {@code /cms/login} / logout handling.</li>
  * </ol>
  * <p>
@@ -46,17 +54,18 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code true} is required for per-site logout URLs (unknowable at bind time) to ever be consulted;
  * when nothing is configured for the request's site, {@code getLogoutUrl} returns {@code null} and
  * Jahia applies its default logout. The trade-off is that, while deployed, this module occupies the
- * first logout-provider slot.
+ * first logout-provider slot. The {@link MfaSiteProvider} reference is optional ({@code 0..n}) so
+ * this component registers — and claims that slot — even before any factor binds.
  * <p>
  * The global URLs live in an {@link AtomicReference} refreshed by {@link #activate(Map)} (bound to
  * {@code @Modified}), so an operator can change the default by editing the {@code .cfg} with no
- * restart; per-site URLs are read live from the JCR on each request.
+ * restart; per-site URLs are read live on each request.
  */
 @Component(service = {LoginUrlProvider.class, LogoutUrlProvider.class}, immediate = true,
-        configurationPid = "org.jahia.modules.totp")
-public class MfaTotpLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvider {
+        configurationPid = "org.jahia.modules.mfa.extensions")
+public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(MfaTotpLoginLogoutProvider.class);
+    private static final Logger logger = LoggerFactory.getLogger(MfaLoginLogoutProvider.class);
 
     static final String CONFIG_LOGIN_URL = "loginUrl";
     static final String CONFIG_LOGOUT_URL = "logoutUrl";
@@ -69,11 +78,18 @@ public class MfaTotpLoginLogoutProvider implements LoginUrlProvider, LogoutUrlPr
     private final AtomicReference<String> loginUrl = new AtomicReference<>();
     private final AtomicReference<String> logoutUrl = new AtomicReference<>();
 
-    private TotpSiteSettingsStore siteSettingsStore;
+    /** Each factor's per-site URL view. Read-heavy on the request path → copy-on-write. */
+    private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
 
-    @Reference
-    public void setSiteSettingsStore(TotpSiteSettingsStore siteSettingsStore) {
-        this.siteSettingsStore = siteSettingsStore;
+    @Reference(service = MfaSiteProvider.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC)
+    public void bindSiteProvider(MfaSiteProvider provider) {
+        siteProviders.add(provider);
+    }
+
+    public void unbindSiteProvider(MfaSiteProvider provider) {
+        siteProviders.remove(provider);
     }
 
     @Activate
@@ -83,7 +99,7 @@ public class MfaTotpLoginLogoutProvider implements LoginUrlProvider, LogoutUrlPr
         String logout = readUrl(properties, CONFIG_LOGOUT_URL);
         this.loginUrl.set(login);
         this.logoutUrl.set(logout);
-        logger.info("MFA TOTP login/logout URL provider configured (global loginUrl={}, logoutUrl={})",
+        logger.info("MFA login/logout URL provider configured (global loginUrl={}, logoutUrl={})",
                 login == null ? "<default>" : login, logout == null ? "<default>" : logout);
     }
 
@@ -121,32 +137,39 @@ public class MfaTotpLoginLogoutProvider implements LoginUrlProvider, LogoutUrlPr
         return StringUtils.isNotBlank(perSite) ? perSite : StringUtils.trimToNull(global);
     }
 
-    /** The {@code loginUrl}/{@code logoutUrl} stored on the request's site, or {@code null}. */
+    /**
+     * The first non-blank, safe {@code loginUrl}/{@code logoutUrl} any registered factor reports
+     * for the request's site, or {@code null}. A provider that throws is skipped (fail to "no
+     * custom URL" → Jahia default), and an unsafe value is skipped (open-redirect guard).
+     */
     private String perSiteUrl(HttpServletRequest request, boolean login) {
-        if (siteSettingsStore == null) {
-            return null;
-        }
         String siteKey = resolveSiteKey(request);
         if (StringUtils.isBlank(siteKey)) {
             return null;
         }
-        try {
-            TotpSiteSettingsStore.TotpSiteSettings settings = siteSettingsStore.load(siteKey);
-            String url = login ? settings.getLoginUrl() : settings.getLogoutUrl();
-            // Defense-in-depth open-redirect guard: the store validates on save, but values
-            // written before that guard existed (or via direct JCR tooling) must never be
-            // allowed to redirect the login flow off-site.
-            if (url != null && !TotpSiteSettingsStore.isSafeSiteRelativeUrl(url)) {
-                logger.warn("Ignoring unsafe per-site TOTP {} URL on site {} (not a server-relative path)",
+        for (MfaSiteProvider provider : siteProviders) {
+            String url;
+            try {
+                url = login ? provider.getLoginUrl(siteKey) : provider.getLogoutUrl(siteKey);
+            } catch (RuntimeException e) {
+                logger.debug("Failed to read per-site MFA {} URL from {} for site {}: {}",
+                        login ? "login" : "logout", provider.getClass().getName(), siteKey, e.getMessage());
+                continue;
+            }
+            if (StringUtils.isBlank(url)) {
+                continue;
+            }
+            // Defense-in-depth open-redirect guard: stores validate on save, but values written
+            // before that guard existed (or via direct JCR tooling) must never be allowed to
+            // redirect the login flow off-site.
+            if (!MfaUrls.isSafeSiteRelativeUrl(url)) {
+                logger.warn("Ignoring unsafe per-site MFA {} URL on site {} (not a server-relative path)",
                         login ? "login" : "logout", siteKey);
-                return null;
+                continue;
             }
             return url;
-        } catch (RepositoryException e) {
-            logger.debug("Failed to read per-site TOTP {} URL for site {}: {}",
-                    login ? "login" : "logout", siteKey, e.getMessage());
-            return null;
         }
+        return null;
     }
 
     /**
@@ -176,7 +199,7 @@ public class MfaTotpLoginLogoutProvider implements LoginUrlProvider, LogoutUrlPr
                 return StringUtils.trimToNull(((URLResolver) resolver).getSiteKey());
             }
         } catch (Exception e) {
-            logger.debug("Could not resolve site for TOTP login/logout URL: {}", e.getMessage());
+            logger.debug("Could not resolve site for MFA login/logout URL: {}", e.getMessage());
         }
         return null;
     }

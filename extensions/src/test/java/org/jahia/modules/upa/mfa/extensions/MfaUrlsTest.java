@@ -1,21 +1,21 @@
-package org.jahia.modules.upa.mfa.totp;
+package org.jahia.modules.upa.mfa.extensions;
 
 import org.junit.Test;
 
-import static org.jahia.modules.upa.mfa.totp.TotpSiteSettingsStore.isSafeSiteRelativeUrl;
-import static org.jahia.modules.upa.mfa.totp.TotpSiteSettingsStore.validateSiteRelativeUrl;
+import static org.jahia.modules.upa.mfa.extensions.MfaUrls.isSafeSiteRelativeUrl;
+import static org.jahia.modules.upa.mfa.extensions.MfaUrls.validateSiteRelativeUrl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Open-redirect guard for the per-site login/logout URLs: only server-relative paths may ever
- * be stored or served. A site admin must NOT be able to point a site's login redirect at an
+ * Open-redirect guard for the per-site / global login/logout URLs: only server-relative paths may
+ * ever be stored or served. A site admin must NOT be able to point a site's login redirect at an
  * external host ({@code https://attacker.example}, {@code //attacker.example}, the
  * {@code /\attacker.example} browser backslash quirk) or at a {@code javascript:} URL.
  */
-public class TotpSiteSettingsStoreTest {
+public class MfaUrlsTest {
 
     // --- isSafeSiteRelativeUrl: the no-throw predicate used on the read path ---
 

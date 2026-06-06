@@ -1,5 +1,6 @@
 package org.jahia.modules.upa.mfa.totp;
 
+import org.jahia.modules.upa.mfa.extensions.MfaUrls;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
@@ -87,49 +88,6 @@ public class TotpSiteSettingsStore {
     }
 
     /**
-     * Whether the value is a safe server-relative redirect target: it must start with a
-     * single {@code /}, must NOT be protocol-relative ({@code //host} or the {@code /\host}
-     * browser quirk), and must not contain whitespace, control characters or backslashes.
-     * Anything else (absolute {@code http(s)://}, {@code javascript:}, …) is rejected —
-     * a site admin must never be able to turn the login redirect into an open redirect.
-     */
-    public static boolean isSafeSiteRelativeUrl(String value) {
-        if (value == null || value.isEmpty() || value.charAt(0) != '/') {
-            return false;
-        }
-        if (value.length() > 1 && (value.charAt(1) == '/' || value.charAt(1) == '\\')) {
-            return false; // protocol-relative: //host or /\host
-        }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c <= ' ' || c == '\\' || c == 0x7F) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Normalize and validate a per-site login/logout URL submitted by a site admin.
-     *
-     * @return the trimmed value, or {@code null} when blank (= "not configured")
-     * @throws IllegalArgumentException when the value is not a safe server-relative path
-     *         (see {@link #isSafeSiteRelativeUrl})
-     */
-    public static String validateSiteRelativeUrl(String value) {
-        String trimmed = value == null ? null : value.trim();
-        if (trimmed == null || trimmed.isEmpty()) {
-            return null;
-        }
-        if (!isSafeSiteRelativeUrl(trimmed)) {
-            throw new IllegalArgumentException(
-                    "URL must be a server-relative path starting with '/' (got a value that is absolute, "
-                            + "protocol-relative, or contains illegal characters)");
-        }
-        return trimmed;
-    }
-
-    /**
      * Read the settings for the given site key via a JCR system session.
      * Returns {@link TotpSiteSettings#DISABLED} if the site is missing, blank, or has
      * never had the mixin applied — "no config" means TOTP is OFF for that site.
@@ -204,7 +162,7 @@ public class TotpSiteSettingsStore {
      * The caller MUST have already validated site-administrator access — this method does no
      * permission check of its own. It DOES validate the values: graceDays is clamped to
      * {@code [0, MAX_GRACE_DAYS]} and the URLs must be safe server-relative paths
-     * (see {@link #validateSiteRelativeUrl}) — this is the single chokepoint every writer
+     * (see {@link MfaUrls#validateSiteRelativeUrl}) — this is the single chokepoint every writer
      * goes through, so the open-redirect guard cannot be bypassed by a future caller.
      *
      * @throws IllegalArgumentException when a URL is not a safe server-relative path
@@ -214,8 +172,8 @@ public class TotpSiteSettingsStore {
         if (siteKey == null || siteKey.isEmpty()) {
             throw new IllegalArgumentException("siteKey must not be empty");
         }
-        String cleanLoginUrl = validateSiteRelativeUrl(settings.getLoginUrl());
-        String cleanLogoutUrl = validateSiteRelativeUrl(settings.getLogoutUrl());
+        String cleanLoginUrl = MfaUrls.validateSiteRelativeUrl(settings.getLoginUrl());
+        String cleanLogoutUrl = MfaUrls.validateSiteRelativeUrl(settings.getLogoutUrl());
         JCRNodeWrapper siteNode = session.getNode("/sites/" + siteKey);
         if (!siteNode.isNodeType(MIXIN_SITE_SETTINGS)) {
             siteNode.addMixin(MIXIN_SITE_SETTINGS);
