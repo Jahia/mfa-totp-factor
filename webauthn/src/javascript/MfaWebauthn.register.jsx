@@ -15,9 +15,21 @@ const SITE_ADMIN_GUARDS = {
 export default function () {
     console.debug('%c mfa-factors-webauthn: activation in progress', 'color: #006633');
 
-    // Per-user dashboard route: register / rename / remove passkeys.
+    // "MFA Community" group in the user dashboard. Children attach through the
+    // 'dashboard-mfa-community-dashboard' target. Registered defensively because the totp and
+    // webauthn bundles each may be installed alone — whichever activates first wins.
+    if (!registry.get('adminRoute', 'mfa-community-dashboard')) {
+        registry.add('adminRoute', 'mfa-community-dashboard', {
+            targets: ['dashboard:99.2'],
+            icon: <Security/>,
+            label: 'mfa-factors-webauthn:mfaCommunity.menuLabel',
+            isSelectable: false
+        });
+    }
+
+    // MFA Community > Security keys and passkeys: register / rename / remove passkeys.
     registry.add('adminRoute', 'mfa-factors-webauthn', {
-        targets: ['dashboard:99.3'],
+        targets: ['dashboard-mfa-community-dashboard:2'],
         icon: <Security/>,
         label: 'mfa-factors-webauthn:title',
         isSelectable: true,

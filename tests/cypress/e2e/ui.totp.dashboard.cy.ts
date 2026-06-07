@@ -2,7 +2,8 @@
  * UI tests for the TOTP MFA dashboard page.
  *
  * Exercises the React UI registered by mfa-factors-totp at adminRoute
- * `mfa-factors-totp` (sidebar target `dashboard:99.2`). The route lives at
+ * `mfa-factors-totp` (sidebar target `dashboard-mfa-community-dashboard:1`,
+ * under the shared "MFA Community" dashboard group). The route lives at
  * `/jahia/dashboard/mfa-factors-totp`.
  *
  * Each test runs against a fresh user so enrollment state never bleeds
