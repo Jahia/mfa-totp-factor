@@ -6,7 +6,7 @@ import ErrorMessage from "./ErrorMessage.client";
 import type { Props } from "./types";
 import { convertErrorArgsToInterpolation } from "../../services/i18n";
 import type { MfaError } from "../../services/common";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { submitOnEnter } from "./formKeyboard";
 
 function extractSiteKeyFromUrl(): string | undefined {
@@ -68,6 +68,10 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
 
   return (
     <>
+      {/* Every step of the flow opens with a heading (WCAG 2.4.10 Section Headings). */}
+      <h2>
+        <Trans i18nKey="login.title" />
+      </h2>
       <form onSubmit={handleSubmit}>
         <div className={classes.formField}>
           <label htmlFor="username">{props.content.loginEmailFieldLabel}</label>

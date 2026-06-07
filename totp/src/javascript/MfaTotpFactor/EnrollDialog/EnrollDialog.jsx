@@ -54,6 +54,7 @@ const EnrollDialog = ({isOpen, enrollData, isLoading, errorKey, onCancel, onConf
                            value={code}
                            maxLength={10}
                            placeholder="123456"
+                           aria-label={t('enrollDialog.step2')}
                            style={{marginTop: 8}}
                            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}/>
                     {errorKey && (

@@ -355,6 +355,35 @@ in on an enforcing site. The recovery path is administrative:
 If codes from a healthy authenticator are rejected, check the device clock: the server
 accepts ±1 time step (30 s) of drift around the current 30-second window.
 
+## Accessibility (WCAG 2.2 AAA)
+
+Every screen shipped by these modules (the sign-in flow, the dashboard pages and the
+administration pages) targets WCAG 2.2 **AAA**:
+
+- **Contrast (1.4.6, ≥7:1 normal / ≥4.5:1 large text)** — the shared palette is verified by
+  computation: errors `#a00000` (8.42:1), success `#006600` (7.24:1), help text `#555`
+  (7.46:1), actions/links `#00538b` (8.05:1, also the focus-ring color), base text `#131c21`
+  (17.27:1). Input borders use `#767676` (4.54:1 — non-text boundaries, 1.4.11). Explicit
+  `::placeholder` color avoids the under-contrast UA default.
+- **Host-template independence** — the login UI renders as an island inside arbitrary site
+  templates (some paint near-black backgrounds and force white headings). The flow owns its
+  own white card surface (background, text color, heading/link overrides), so the ratios
+  above hold regardless of the page hosting it.
+- **Status messages (4.1.3)** — errors carry `role="alert"`, successes and loading states
+  `role="status"`/`aria-live="polite"`, on every screen including the modals and the admin
+  reset sections.
+- **Labels & relationships** — every input has a programmatic name (`<label for>` or
+  `aria-label`) and help text is attached via `aria-describedby`. The enrollment QR code has
+  a `role="img"` text alternative plus the secret displayed as selectable text.
+- **Keyboard & focus (2.1.3 / 2.4.7 / 2.4.13)** — everything operates with the keyboard
+  alone; focus is visible everywhere (2px outline, 2px offset, 8:1 against the surface) and
+  moved to the active field between steps. `prefers-reduced-motion` is honored (2.3.3).
+- **Target size (2.5.5)** — buttons, standalone links and inputs reserve at least 44 CSS px.
+- **Headings (2.4.10)** — every step of the sign-in flow opens with a heading.
+- **Timing (2.2.3)** — the 30-second TOTP window, the emailed-code lifetime and the
+  brute-force lockouts are *essential* security timings and rely on the corresponding WCAG
+  exception; nothing else in the UI is timed and no content auto-updates or moves.
+
 ## Building
 
 ```bash

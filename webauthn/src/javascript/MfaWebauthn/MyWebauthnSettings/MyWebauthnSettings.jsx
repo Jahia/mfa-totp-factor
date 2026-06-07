@@ -82,7 +82,9 @@ const MyWebauthnSettings = () => {
                                                 <td style={{padding: '8px 4px'}}>{formatDate(c.createdAt)}</td>
                                                 <td style={{padding: '8px 4px'}}>{formatDate(c.lastUsedAt)}</td>
                                                 <td style={{padding: '8px 4px', textAlign: 'right'}}>
+                                                    {/* size="big" keeps these row actions at the 44px AAA pointer-target size (WCAG 2.5.5). */}
                                                     <Button variant="ghost"
+                                                            size="big"
                                                             label={t('list.rename')}
                                                             aria-label={t('list.renameOf', {nickname: c.nickname})}
                                                             onClick={() => {
@@ -90,6 +92,7 @@ const MyWebauthnSettings = () => {
                                                                 setRenameTarget(c);
                                                             }}/>
                                                     <Button variant="ghost"
+                                                            size="big"
                                                             color="danger"
                                                             label={t('list.delete')}
                                                             aria-label={t('list.deleteOf', {nickname: c.nickname})}

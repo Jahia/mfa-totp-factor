@@ -58,6 +58,10 @@ export default function FatalErrorScreen({ error, onResetFlow }: Readonly<FatalE
 
   return (
     <>
+      {/* Every step of the flow opens with a heading (WCAG 2.4.10 Section Headings). */}
+      <h2>
+        <Trans i18nKey="fatal.title" />
+      </h2>
       {message && <ErrorMessage message={message} />}
       <hr />
       {!inProgress && (

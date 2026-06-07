@@ -1,4 +1,6 @@
 {
+    "login.title": "Sign in",
+    "fatal.title": "Sign-in problem",
     "unexpected_error": "An unexpected error occurred",
     "no_active_session": "No active session found. Please refresh the page and retry login again.",
     "authentication_failed": "Invalid username or password",

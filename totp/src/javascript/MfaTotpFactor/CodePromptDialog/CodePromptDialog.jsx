@@ -37,10 +37,12 @@ const CodePromptDialog = ({
                            value={code}
                            maxLength={10}
                            placeholder="123456"
+                           aria-label={description}
                            style={{marginTop: 12}}
                            onChange={e => setCode(e.target.value.replace(/[^A-Za-z0-9-]/g, ''))}/>
                     {errorKey && (
-                        <Typography style={{marginTop: 12, color: '#c00', display: 'block'}}
+                        <Typography role="alert"
+                                    style={{marginTop: 12, color: '#a00000', display: 'block'}}
                                     data-testid="code-prompt-error"
                         >
                             {t(errorKey)}

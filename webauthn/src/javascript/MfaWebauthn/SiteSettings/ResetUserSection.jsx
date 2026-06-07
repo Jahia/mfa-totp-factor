@@ -49,8 +49,10 @@ const ResetUserSection = ({siteKey}) => {
                 <input type="text"
                        value={userId}
                        placeholder={t('siteSettings.reset.placeholder')}
+                       aria-label={t('siteSettings.reset.placeholder')}
                        data-testid="reset-user-input"
-                       style={{padding: '0.4rem', minWidth: 240, borderRadius: 4, border: '1px solid #ccc'}}
+                       style={{padding: '0.4rem', minWidth: 240, minHeight: 44, boxSizing: 'border-box',
+                               borderRadius: 4, border: '1px solid #767676'}}
                        onChange={e => {
                            setUserId(e.target.value);
                            setConfirming(false);
@@ -66,8 +68,9 @@ const ResetUserSection = ({siteKey}) => {
                         }}/>
             </div>
             {confirming && (
-                <div data-testid="reset-user-confirm"
-                     style={{marginTop: 12, padding: 12, border: '1px solid #c00', borderRadius: 4, maxWidth: 560}}
+                <div role="alert"
+                     data-testid="reset-user-confirm"
+                     style={{marginTop: 12, padding: 12, border: '1px solid #a00000', borderRadius: 4, maxWidth: 560}}
                 >
                     <Typography style={{display: 'block', marginBottom: 12}}>
                         {t('siteSettings.reset.confirmText', {userId: userId.trim()})}
@@ -85,12 +88,19 @@ const ResetUserSection = ({siteKey}) => {
                 </div>
             )}
             {done && (
-                <Typography style={{color: '#080', display: 'block', marginTop: 12}} data-testid="reset-user-done">
+                <Typography role="status"
+                            aria-live="polite"
+                            style={{color: '#006600', display: 'block', marginTop: 12}}
+                            data-testid="reset-user-done"
+                >
                     {t('siteSettings.reset.done')}
                 </Typography>
             )}
             {errorKey && (
-                <Typography style={{color: '#c00', display: 'block', marginTop: 12}} data-testid="reset-user-error">
+                <Typography role="alert"
+                            style={{color: '#a00000', display: 'block', marginTop: 12}}
+                            data-testid="reset-user-error"
+                >
                     {t(errorKey)}
                 </Typography>
             )}

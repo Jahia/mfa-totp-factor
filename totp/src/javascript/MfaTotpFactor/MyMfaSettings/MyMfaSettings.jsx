@@ -159,7 +159,8 @@ const MyMfaSettings = () => {
                                     t('descriptionDisabled')}
                             </Typography>
                             {errorKey && (
-                                <Typography style={{marginTop: 16, color: '#c00', display: 'block'}}
+                                <Typography role="alert"
+                                            style={{marginTop: 16, color: '#a00000', display: 'block'}}
                                             data-testid="mfa-error"
                                 >
                                     {t(errorKey)}

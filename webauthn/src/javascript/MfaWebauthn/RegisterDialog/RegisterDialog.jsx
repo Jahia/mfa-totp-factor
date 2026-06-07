@@ -75,7 +75,8 @@ const RegisterDialog = ({isOpen, onClose, onRegistered}) => {
                                    data-testid="webauthn-nickname-input"
                                    onChange={e => setNickname(e.target.value)}/>
                             {errorKey && (
-                                <Typography style={{color: '#c00', display: 'block', marginTop: 12}}
+                                <Typography role="alert"
+                                            style={{color: '#a00000', display: 'block', marginTop: 12}}
                                             data-testid="webauthn-register-error"
                                 >
                                     {t('errors.' + errorKey)}
@@ -83,7 +84,7 @@ const RegisterDialog = ({isOpen, onClose, onRegistered}) => {
                             )}
                         </>
                     ) : (
-                        <Typography style={{color: '#c00', display: 'block'}} data-testid="webauthn-unsupported">
+                        <Typography role="alert" style={{color: '#a00000', display: 'block'}} data-testid="webauthn-unsupported">
                             {t('errors.unsupported')}
                         </Typography>
                     )}

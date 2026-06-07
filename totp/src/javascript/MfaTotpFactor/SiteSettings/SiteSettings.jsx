@@ -170,9 +170,11 @@ const TextField = ({id, testid, type, value, disabled, placeholder, label, help,
                min={min}
                max={max}
                data-testid={testid}
-               style={{padding: '0.4rem', minWidth: 280, borderRadius: 4, border: '1px solid #ccc'}}
+               aria-describedby={`${id}-help`}
+               style={{padding: '0.4rem', minWidth: 280, minHeight: 44, boxSizing: 'border-box',
+                       borderRadius: 4, border: '1px solid #767676'}}
                onChange={e => onChange(e.target.value)}/>
-        <Typography variant="caption" style={{display: 'block', color: '#555', marginTop: 4}}>{help}</Typography>
+        <Typography id={`${id}-help`} variant="caption" style={{display: 'block', color: '#555', marginTop: 4}}>{help}</Typography>
     </div>
 );
 

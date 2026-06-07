@@ -13,16 +13,17 @@
   width: 100%;
   padding: 0.5rem;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  /* 4.54:1 against the white card — non-text UI boundary (WCAG 1.4.11 needs 3:1). */
+  border: 1px solid #767676;
   box-sizing: border-box;
+  /* Pointer target ≥44 CSS px (WCAG 2.5.5 AAA). */
+  min-height: 44px;
 }
-
 
 .errorMessage {
   min-height: 1.2rem;
-  height: 1.2rem;
   padding: 4px 0;
-  /* AA contrast on white (~7:1) vs pure red (~4:1). */
+  /* 8.42:1 on the white card — AAA (1.4.6 needs 7:1 for normal text). */
   color: #a00000;
 }
 .errorMessage > p {
@@ -44,9 +45,11 @@
   letter-spacing: 0.5em;
   padding: 0.5rem 0.5rem 0.5rem 1rem;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  border: 1px solid #767676;
   text-align: center;
   width: 12ch;
+  box-sizing: border-box;
+  min-height: 44px;
 }
 
 .backupCodeInput {
@@ -56,9 +59,19 @@
   letter-spacing: 0.1em;
   padding: 0.5rem;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  border: 1px solid #767676;
   text-align: center;
   width: 18ch;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+
+/* Placeholders are text too: 7.46:1 (AAA) instead of the UA default gray (~4.6:1). */
+.formField input::placeholder,
+.otpInput::placeholder,
+.backupCodeInput::placeholder {
+  color: #555;
+  opacity: 1;
 }
 
 .submitButton {
@@ -67,10 +80,13 @@
   transition: opacity 0.2s ease-in-out;
   padding: 0.5rem 1.5rem;
   border-radius: 4px;
-  border: 1px solid #00a0e3;
-  background: #00a0e3;
+  /* White on #00538b = 8.05:1 — AAA. The previous #00a0e3 was 2.94:1 (below even AA). */
+  border: 1px solid #00538b;
+  background: #00538b;
   color: white;
   font-weight: 600;
+  /* Pointer target ≥44 CSS px (WCAG 2.5.5 AAA). */
+  min-height: 44px;
 }
 
 .submitButton:disabled {
@@ -79,7 +95,7 @@
   pointer-events: none;
 }
 
-/* Visible keyboard focus indicator (WCAG 2.4.7). */
+/* Visible keyboard focus indicator (WCAG 2.4.7 / 2.4.13: ≥2px, ≥3:1 against adjacent). */
 .submitButton:focus-visible,
 .toggleMode:focus-visible,
 .formField input:focus-visible,
@@ -99,15 +115,21 @@
 .toggleMode {
   background: none;
   border: none;
-  color: #00a0e3;
+  /* 8.05:1 on the white card — AAA (was #00a0e3 at 2.94:1). */
+  color: #00538b;
   cursor: pointer;
   font-size: 0.9rem;
   text-decoration: underline;
   padding: 0;
+  /* Standalone control: meet the 44px target without changing the link look. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .helpText {
   font-size: 0.9rem;
+  /* 7.46:1 on the white card — AAA. */
   color: #555;
   text-align: center;
   margin: 0;
@@ -131,4 +153,21 @@
   width: 80%;
   max-width: 480px;
   margin: 0 auto;
+  /* Self-contained surface: the island renders inside arbitrary site templates — some paint
+     near-black page backgrounds (#01021b) and force white headings, which would wreck every
+     text-contrast pair above. Owning background AND text color here keeps the whole flow at
+     WCAG 1.4.6 (AAA) regardless of the host page. */
+  background: #fff;
+  color: #131c21; /* 17.27:1 */
+  padding: 1.5rem 2rem 2rem;
+  border-radius: 8px;
+  border: 1px solid #767676;
+}
+
+/* Win over host-template rules like `h2 { color: white }` / `a { color: #06a }` (6.03:1). */
+.main h2 {
+  color: inherit;
+}
+.main a {
+  color: #00538b;
 }
