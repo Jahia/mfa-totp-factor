@@ -157,14 +157,25 @@ factor-agnostic — it intersects the global policy with every factor's `MfaSite
   attribute) are gated when **that site** has one of the **enforced** factors **enabled**;
 - requests with no site context — the common case — are gated when **any** site has an
   enforced factor enabled (`/cms/login` authenticates globally, so one such site is enough);
-- gated requests get **HTTP 403** unless the client IP matches `loginGate.ipWhitelist`,
-  keeping an emergency/back-office door (e.g. your VPN range).
+- a client IP matching `loginGate.ipWhitelist` always passes (emergency/back-office door,
+  e.g. your VPN range) — in both modes below.
+
+Gated, non-whitelisted requests are handled in one of two modes:
+
+- **automatic** (always on while enforcement is active): `/cms/login` stays reachable **only
+  when the operator explicitly configured it as the login URL** (global or per-site). With a
+  custom MFA login page configured, the request is **302-redirected** there (carrying the
+  `redirect=` return-to-target); with **no** login URL configured at all it is rejected with
+  **403** and a configuration-guidance warning — enforcement with the default password-only
+  screen reachable would silently void the second factor;
+- **explicit hard gate** (`loginGate.enabled=true`): always **HTTP 403**, regardless of any
+  configured login URL — the strictest, opt-in behavior.
 
 The client IP is the **first `X-Forwarded-For` entry** when present, else the socket
-address. **Security:** `X-Forwarded-For` is client-spoofable — only enable the gate behind a
-reverse proxy that overwrites the header. The gate is **off by default**: enabling it with an
-empty whitelist locks everyone (including platform administrators) out of `/cms/login` as
-soon as one site enforces enrollment — set the whitelist first, then flip
+address. **Security:** `X-Forwarded-For` is client-spoofable — only rely on the whitelist
+behind a reverse proxy that overwrites the header. The hard gate is **off by default**:
+enabling it with an empty whitelist locks everyone (including platform administrators) out of
+`/cms/login` as soon as one site enforces enrollment — set the whitelist first, then flip
 `loginGate.enabled=true`. JCR errors fail **closed** (request blocked).
 
 Tunable security constants (`DRIFT_WINDOWS`, `TIME_STEP_SECONDS`, `DIGITS`, PBKDF2

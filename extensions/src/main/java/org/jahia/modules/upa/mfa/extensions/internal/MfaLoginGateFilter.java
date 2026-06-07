@@ -53,6 +53,19 @@ import java.util.regex.Pattern;
  *       VPN range).</li>
  * </ul>
  * <p>
+ * Gated, non-whitelisted requests are handled in one of two modes:
+ * <ul>
+ *   <li><b>explicit hard gate</b> ({@code loginGate.enabled=true}) — always {@code 403}, the
+ *       operator's opt-in strictest behavior (unchanged contract);</li>
+ *   <li><b>automatic</b> (gate not enabled) — {@code /cms/login} stays reachable ONLY when the
+ *       operator deliberately configured it as the login URL (global or per-site, resolved by
+ *       {@link MfaLoginLogoutProvider}). With a custom MFA login page configured the request is
+ *       302-redirected there (the URL already carries the {@code redirect=} return-to-target);
+ *       with NO login URL configured at all the request is rejected with {@code 403} and a
+ *       configuration-guidance warning — enforcement with the default password-only screen
+ *       reachable would silently void the second factor.</li>
+ * </ul>
+ * <p>
  * The filter is factor-agnostic: it discovers per-site activation through every registered
  * {@link MfaSiteProvider} (TOTP, WebAuthn, ...) and intersects it with the global policy.
  * It therefore has no compile-time dependency on any individual factor module.
@@ -65,11 +78,12 @@ import java.util.regex.Pattern;
  * <p>
  * Configuration (PID {@code org.jahia.modules.mfa.extensions}, hot-reloaded via {@code @Modified}):
  * <ul>
- *   <li>{@code loginGate.enabled} — master switch, default {@code false}. Deliberately opt-in:
- *       enabling the gate with an empty whitelist locks EVERYONE out of {@code /cms/login}
- *       (including platform administrators) as soon as one site enforces enrollment.</li>
+ *   <li>{@code loginGate.enabled} — the explicit HARD gate (always {@code 403}), default
+ *       {@code false}. Deliberately opt-in: enabling it with an empty whitelist locks EVERYONE
+ *       out of {@code /cms/login} (including platform administrators) as soon as one site
+ *       enforces enrollment. The automatic mode above runs regardless of this switch.</li>
  *   <li>{@code loginGate.ipWhitelist} — comma-separated IPv4/IPv6 addresses or CIDR blocks
- *       (e.g. {@code 203.0.113.7, 10.0.0.0/8, 2001:db8::/32}).</li>
+ *       (e.g. {@code 203.0.113.7, 10.0.0.0/8, 2001:db8::/32}); honoured by BOTH modes.</li>
  * </ul>
  * <p>
  * Registered as an OSGi service of type {@link AbstractServletFilter}: Jahia's
@@ -111,6 +125,9 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
     /** The global enforcement policy (same bundle, same configuration PID). */
     private MfaGlobalPolicy globalPolicy;
 
+    /** Resolves the configured login URL (per-site → global) for the automatic mode. */
+    private MfaLoginLogoutProvider loginLogoutProvider;
+
     public MfaLoginGateFilter() {
         setFilterName("MfaLoginGateFilter");
         setUrlPatterns(new String[]{"/cms/login", "/cms/login/*"});
@@ -122,6 +139,11 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
     @Reference
     public void setGlobalPolicy(MfaGlobalPolicy globalPolicy) {
         this.globalPolicy = globalPolicy;
+    }
+
+    @Reference
+    public void setLoginLogoutProvider(MfaLoginLogoutProvider loginLogoutProvider) {
+        this.loginLogoutProvider = loginLogoutProvider;
     }
 
     @Reference(service = MfaSiteProvider.class,
@@ -188,7 +210,7 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        if (!gateEnabled.get() || !(request instanceof HttpServletRequest)) {
+        if (!(request instanceof HttpServletRequest)) {
             chain.doFilter(request, response);
             return;
         }
@@ -203,9 +225,55 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
             chain.doFilter(request, response);
             return;
         }
-        logger.warn("Blocked /cms/login access from {} (MFA enrollment enforced and IP not whitelisted)",
-                clientIp);
-        ((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN);
+        if (gateEnabled.get()) {
+            // Explicit hard gate: the operator opted into the strictest behavior.
+            logger.warn("Blocked /cms/login access from {} (MFA enrollment enforced and IP not whitelisted)",
+                    clientIp);
+            ((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+        handleAutomaticMode(httpRequest, (HttpServletResponse) response, chain, clientIp);
+    }
+
+    /**
+     * Automatic mode (enforcement active, hard gate not enabled): {@code /cms/login}
+     * authenticates with the password ALONE, so it stays reachable only when the operator
+     * deliberately configured it as the login URL. A configured custom MFA login page is
+     * served as a redirect — {@link MfaLoginLogoutProvider} already resolved per-site vs
+     * global and appended the {@code redirect=} return-to-target — and a missing login URL
+     * blocks with configuration guidance: silently allowing the default password-only screen
+     * would void the enforced second factor.
+     */
+    private void handleAutomaticMode(HttpServletRequest request, HttpServletResponse response,
+                                     FilterChain chain, String clientIp) throws IOException, ServletException {
+        String configuredLogin = loginLogoutProvider.getLoginUrl(request);
+        if (isCmsLogin(configuredLogin, request.getContextPath())) {
+            chain.doFilter(request, response);
+            return;
+        }
+        if (configuredLogin != null) {
+            logger.debug("Rerouting /cms/login to the configured MFA login page (enforcement active)");
+            response.sendRedirect(configuredLogin);
+            return;
+        }
+        logger.warn("Blocked /cms/login access from {}: MFA enforcement is active but no MFA login page is "
+                + "configured, so the default password-only screen would bypass the second factor. Configure "
+                + "loginUrl (PID org.jahia.modules.mfa.extensions, or the site's MFA administration page), "
+                + "set it to /cms/login to deliberately keep the default screen, or whitelist your IP "
+                + "(loginGate.ipWhitelist).", clientIp);
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    /** Whether the configured login URL is {@code /cms/login} itself — the operator's explicit choice. */
+    static boolean isCmsLogin(String url, String contextPath) {
+        if (url == null) {
+            return false;
+        }
+        String path = StringUtils.substringBefore(url, "?");
+        if (StringUtils.isNotEmpty(contextPath) && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        return path.equals("/cms/login");
     }
 
     /**

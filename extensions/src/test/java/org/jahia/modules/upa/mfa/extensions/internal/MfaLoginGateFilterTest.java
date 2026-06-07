@@ -4,17 +4,25 @@ import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
 import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
 import org.junit.Test;
 
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isCmsLogin;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isIpLiteral;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.isWhitelisted;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter.parseWhitelist;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -164,13 +172,136 @@ public class MfaLoginGateFilterTest {
         assertTrue(gate.computeAnySiteEnforcing());
     }
 
+    // --- Automatic mode: /cms/login reachable ONLY when explicitly configured as loginUrl ----
+
+    @Test
+    public void isCmsLoginRecognizesTheDefaultEndpoint() {
+        assertTrue(isCmsLogin("/cms/login", ""));
+        assertTrue("a query string does not change the endpoint", isCmsLogin("/cms/login?site=x", ""));
+        assertTrue("context path is stripped", isCmsLogin("/ctx/cms/login", "/ctx"));
+        assertFalse(isCmsLogin("/sites/mySite/login.html", ""));
+        assertFalse(isCmsLogin("/cms/logout", ""));
+        assertFalse(isCmsLogin(null, ""));
+    }
+
+    @Test
+    public void automaticMode_customLoginPage_redirectsThere() throws Exception {
+        MfaLoginGateFilter gate = gateWith("totp", "/sites/mySite/login.html",
+                provider("totp", true, true, false));
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertEquals("/sites/mySite/login.html", recorder.redirectedTo.get());
+        assertNull("the chain must not proceed to the password-only valve", recorder.chained.get());
+    }
+
+    @Test
+    public void automaticMode_cmsLoginConfigured_allowsThrough() throws Exception {
+        // The operator deliberately chose the default screen: respect it.
+        MfaLoginGateFilter gate = gateWith("totp", "/cms/login", provider("totp", true, true, false));
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertNotNull(recorder.chained.get());
+        assertNull(recorder.errorSent.get());
+        assertNull(recorder.redirectedTo.get());
+    }
+
+    @Test
+    public void automaticMode_noLoginUrlConfigured_blocksWith403() throws Exception {
+        // Enforcement with the default password-only screen reachable = silent MFA bypass.
+        MfaLoginGateFilter gate = gateWith("totp", (String) null, provider("totp", true, true, false));
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertEquals(Integer.valueOf(HttpServletResponse.SC_FORBIDDEN), recorder.errorSent.get());
+        assertNull(recorder.chained.get());
+    }
+
+    @Test
+    public void automaticMode_standsDownWithoutEnforcement() throws Exception {
+        MfaLoginGateFilter gate = gateWith("", "/sites/mySite/login.html",
+                provider("totp", true, true, false));
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertNotNull("no enforcement → the endpoint is no bypass", recorder.chained.get());
+        assertNull(recorder.redirectedTo.get());
+    }
+
+    @Test
+    public void explicitHardGate_blocksEvenWithACustomLoginPage() throws Exception {
+        MfaLoginGateFilter gate = gateWith("totp", "/sites/mySite/login.html",
+                provider("totp", true, true, false));
+        Map<String, Object> props = new HashMap<>();
+        props.put("enforcedFactors", "totp");
+        props.put(MfaLoginGateFilter.CONFIG_GATE_ENABLED, "true");
+        gate.activate(props);
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertEquals(Integer.valueOf(HttpServletResponse.SC_FORBIDDEN), recorder.errorSent.get());
+        assertNull("the hard gate never redirects", recorder.redirectedTo.get());
+    }
+
+    /** A bare GET /cms/login with no site context and a non-whitelisted socket address. */
+    private static HttpServletRequest loginRequest() {
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                MfaLoginGateFilterTest.class.getClassLoader(),
+                new Class<?>[]{HttpServletRequest.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getRequestURI":
+                            return "/cms/login";
+                        case "getContextPath":
+                            return "";
+                        case "getRemoteAddr":
+                            return "198.51.100.23";
+                        default:
+                            return null;
+                    }
+                });
+    }
+
+    /** Records which terminal action doFilter took: chain, sendRedirect or sendError. */
+    private static final class Recorder {
+        private final AtomicReference<Boolean> chained = new AtomicReference<>();
+        private final AtomicReference<String> redirectedTo = new AtomicReference<>();
+        private final AtomicReference<Integer> errorSent = new AtomicReference<>();
+
+        private HttpServletResponse response() {
+            return (HttpServletResponse) Proxy.newProxyInstance(
+                    MfaLoginGateFilterTest.class.getClassLoader(),
+                    new Class<?>[]{HttpServletResponse.class},
+                    (proxy, method, args) -> {
+                        if ("sendRedirect".equals(method.getName())) {
+                            redirectedTo.set((String) args[0]);
+                        } else if ("sendError".equals(method.getName())) {
+                            errorSent.set((Integer) args[0]);
+                        }
+                        return null;
+                    });
+        }
+
+        private FilterChain chain() {
+            return (request, response) -> chained.set(Boolean.TRUE);
+        }
+    }
+
     private static MfaLoginGateFilter gateWith(String enforcedFactors, MfaSiteProvider... providers) {
+        return gateWith(enforcedFactors, null, providers);
+    }
+
+    private static MfaLoginGateFilter gateWith(String enforcedFactors, String globalLoginUrl,
+                                               MfaSiteProvider... providers) {
         MfaLoginGateFilter gate = new MfaLoginGateFilter();
         MfaGlobalPolicy policy = new MfaGlobalPolicy();
         Map<String, Object> props = new HashMap<>();
         props.put("enforcedFactors", enforcedFactors);
         policy.activate(props);
         gate.setGlobalPolicy(policy);
+        MfaLoginLogoutProvider urls = new MfaLoginLogoutProvider();
+        Map<String, Object> urlProps = new HashMap<>();
+        if (globalLoginUrl != null) {
+            urlProps.put(MfaLoginLogoutProvider.CONFIG_LOGIN_URL, globalLoginUrl);
+        }
+        urls.activate(urlProps);
+        gate.setLoginLogoutProvider(urls);
         for (MfaSiteProvider p : providers) {
             gate.bindSiteProvider(p);
         }

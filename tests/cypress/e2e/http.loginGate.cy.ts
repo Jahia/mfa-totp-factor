@@ -3,19 +3,24 @@
  * mfa-factors-extensions bundle):
  *
  * Jahia's legacy /cms/login endpoint authenticates with username/password only (no MFA),
- * so on a site that ENFORCES enrollment for any factor it is a second-factor bypass. With the
- * gate enabled (loginGate.enabled, PID org.jahia.modules.mfa.extensions), /cms/login must
- * return 403 while enrollment is enforced — unless the client IP, read from the FIRST
- * X-Forwarded-For entry, matches the configured whitelist (loginGate.ipWhitelist). This spec
- * drives enforcement through the TOTP factor (a convenient enforcing factor), but the gate
- * itself is factor-agnostic.
+ * so on a site that ENFORCES enrollment for any factor it is a second-factor bypass. Two modes
+ * close it while enrollment is enforced:
  *
- * The gate config is flipped through the provisioning API (editConfiguration) and reverted
- * in after(), so the other specs always run with the gate at its default (disabled).
+ *  - explicit hard gate (loginGate.enabled, PID org.jahia.modules.mfa.extensions): /cms/login
+ *    returns 403 — unless the client IP, read from the FIRST X-Forwarded-For entry, matches
+ *    the configured whitelist (loginGate.ipWhitelist);
+ *  - automatic (gate disabled): /cms/login stays reachable ONLY when the operator explicitly
+ *    configured it as the login URL; a configured custom login page is served as a 302, and a
+ *    missing login URL blocks with 403 (the default screen would silently void the factor).
+ *
+ * This spec drives enforcement through the TOTP factor (a convenient enforcing factor), but
+ * the gate itself is factor-agnostic. The gate config is flipped through the provisioning API
+ * (editConfiguration) and reverted in after(), so the other specs always run with the gate at
+ * its default (disabled) and no enforcement (= no automatic gating either).
  */
 import {createSite, deleteSite} from '@jahia/cypress';
 import gql from 'graphql-tag';
-import {setGlobalEnforcement} from './utils';
+import {setGlobalEnforcement, setGlobalMfaUrls} from './utils';
 
 const SITE_KEY = 'sample-totp-gate';
 
@@ -51,7 +56,8 @@ const requestLogin = (headers: Record<string, string> = {}, qs: Record<string, s
     url: '/cms/login',
     qs,
     headers,
-    failOnStatusCode: false
+    failOnStatusCode: false,
+    followRedirect: false
 });
 
 describe('/cms/login gate while TOTP enrollment is enforced (HTTP)', () => {
@@ -75,6 +81,7 @@ describe('/cms/login gate while TOTP enrollment is enforced (HTTP)', () => {
         // ALWAYS revert: a leftover enabled gate (or enforcement policy) would break every
         // other spec's logins.
         setGateConfig(false, '');
+        setGlobalMfaUrls('', '');
         setGlobalEnforcement('', 0);
         cy.apolloClient(ROOT);
         setSiteEnabled(false);
@@ -108,12 +115,43 @@ describe('/cms/login gate while TOTP enrollment is enforced (HTTP)', () => {
         });
     });
 
-    it('stands down as soon as the gate is disabled', () => {
+    // --- Automatic mode (hard gate disabled, enforcement still active) ----------------------
+
+    it('still blocks /cms/login with the gate disabled when no login URL is configured', () => {
         setGateConfig(false, '');
         requestLogin().then(res => {
-            expect(res.status, 'gate off → default behavior').to.eq(200);
+            expect(res.status, 'enforcement + default screen reachable = silent MFA bypass').to.eq(403);
+        });
+    });
+
+    it('redirects /cms/login to the configured custom login page', () => {
+        setGlobalMfaUrls(`/sites/${SITE_KEY}/login.html`);
+        requestLogin().then(res => {
+            expect(res.status).to.eq(302);
+            expect(res.headers.location).to.contain(`/sites/${SITE_KEY}/login.html`);
+        });
+        // An explicit redirect param survives the hop to the custom page.
+        requestLogin({}, {redirect: '/jahia/dashboard'}).then(res => {
+            expect(res.status).to.eq(302);
+            expect(res.headers.location).to.contain('redirect=%2Fjahia%2Fdashboard');
+        });
+    });
+
+    it('keeps /cms/login reachable when the operator explicitly configured it as the login URL', () => {
+        setGlobalMfaUrls('/cms/login');
+        requestLogin().then(res => {
+            expect(res.status, 'the default screen is a deliberate choice here').to.eq(200);
+        });
+    });
+
+    it('stands down entirely once enforcement is cleared', () => {
+        setGlobalMfaUrls('', '');
+        setGlobalEnforcement('', 0);
+        requestLogin().then(res => {
+            expect(res.status, 'no enforcement → no bypass to close').to.eq(200);
         });
         // Re-arm for symmetry with after() (which reverts unconditionally).
+        setGlobalEnforcement('totp', 0);
         setGateConfig(true, '203.0.113.0/24');
     });
 });

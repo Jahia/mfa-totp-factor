@@ -64,8 +64,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code @Modified}), so an operator can change the default by editing the {@code .cfg} with no
  * restart; per-site URLs are read live on each request.
  */
-@Component(service = {LoginUrlProvider.class, LogoutUrlProvider.class}, immediate = true,
-        configurationPid = "org.jahia.modules.mfa.extensions")
+@Component(service = {LoginUrlProvider.class, LogoutUrlProvider.class, MfaLoginLogoutProvider.class},
+        immediate = true, configurationPid = "org.jahia.modules.mfa.extensions")
 public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(MfaLoginLogoutProvider.class);
