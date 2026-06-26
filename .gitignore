@@ -3,6 +3,9 @@
 *.iml
 .vscode/
 
+# CodeGraph index (local semantic graph, not source)
+.codegraph/
+
 # Build output
 target/
 *.class
