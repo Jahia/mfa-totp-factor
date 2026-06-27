@@ -182,8 +182,10 @@
 }
 
 .helpText {
-  /* 1rem (standard body size): 0.9rem read as too small for these instructional sentences. */
-  font-size: 1rem;
+  /* Instructional sentences shared by every step (scan QR, enter secret, webauthn help, etc.).
+     1.125rem with a roomy line-height: 0.9rem and 1rem both read as too small for body copy. */
+  font-size: 1.125rem;
+  line-height: 1.5;
   /* 7.46:1 on the white card — AAA (contrast is size-independent). */
   color: #555;
   text-align: center;
