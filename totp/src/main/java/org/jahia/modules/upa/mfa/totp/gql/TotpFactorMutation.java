@@ -27,7 +27,6 @@ import org.jahia.modules.upa.mfa.totp.TotpPreparationResult;
 import org.jahia.modules.upa.mfa.totp.TotpService;
 import org.jahia.modules.upa.mfa.totp.TotpSiteSettingsStore;
 import org.jahia.modules.upa.mfa.totp.TotpUserStore;
-import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.usermanager.JahiaUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +36,7 @@ import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -602,7 +602,8 @@ public class TotpFactorMutation {
         if (StringUtils.isBlank(siteKey)) {
             throw new DataFetchingException("siteKey must not be blank");
         }
-        JCRSessionWrapper session = TotpAdminAccess.requireSiteAdmin(siteKey);
+        // Authorization gate (site admin). No JCR write anymore - persistence is the per-site .cfg.
+        TotpAdminAccess.requireSiteAdmin(siteKey);
         // Open-redirect guard: only server-relative paths may be stored. Validate here (clear,
         // field-specific error for the UI) on top of the enforcement inside the store itself.
         String cleanLoginUrl;
@@ -616,7 +617,7 @@ public class TotpFactorMutation {
             throw new DataFetchingException(ERROR_INVALID_URL);
         }
         try {
-            siteSettingsStore.save(session, siteKey, new TotpSiteSettingsStore.TotpSiteSettings(
+            siteSettingsStore.save(siteKey, new TotpSiteSettingsStore.TotpSiteSettings(
                     enabled, enabledGroups, cleanLoginUrl, cleanLogoutUrl));
             auditLog.recordEvent("setSiteSettings", OUTCOME_SUCCESS, currentUserName(), siteKey,
                     "enabled=" + enabled
@@ -624,7 +625,7 @@ public class TotpFactorMutation {
                             + ", logoutUrl=" + StringUtils.defaultString(cleanLogoutUrl));
             return new TotpSiteSettingsResult(siteKey, enabled, enabledGroups,
                     cleanLoginUrl, cleanLogoutUrl);
-        } catch (RepositoryException e) {
+        } catch (IOException e) {
             logger.warn("Failed to save TOTP site settings for {}: {}", siteKey, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);
         }

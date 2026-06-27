@@ -248,13 +248,9 @@ public class WebAuthnFactorProvider implements MfaFactorProvider {
         return ok;
     }
 
-    private WebAuthnSiteSettingsStore.WebAuthnSiteSettings loadSettings(String siteKey) throws MfaException {
-        try {
-            return siteSettingsStore.load(siteKey);
-        } catch (RepositoryException e) {
-            logger.warn("Failed to load WebAuthn site settings for {}: {}", siteKey, e.getMessage());
-            throw new MfaException(ERROR_INTERNAL);
-        }
+    private WebAuthnSiteSettingsStore.WebAuthnSiteSettings loadSettings(String siteKey) {
+        // Per-site settings are now an in-memory read from the file-backed config service (no JCR).
+        return siteSettingsStore.load(siteKey);
     }
 
     private boolean isInScope(String userId, java.util.List<String> enabledGroups) throws MfaException {

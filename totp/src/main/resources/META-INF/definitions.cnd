@@ -22,13 +22,12 @@
 [upaTotp:graceTracking] mixin
  - upaTotp:graceStartedAt (long) = '0' autocreated protected
 
-// Per-site policy. `enabledGroups` (empty = all users) scopes the policy to specific
-// group members. `loginUrl`/`logoutUrl` let each site point its login/logout at a custom page
-// (surfaced to the shared MfaLoginLogoutProvider via the MfaSiteProvider SPI); empty falls back
-// to the global org.jahia.modules.mfa.extensions config.
-// DEPRECATED: `enforced`/`graceDays` are retained for repository compatibility only — enforcement
-// (and its grace window) is now global (PID org.jahia.modules.mfa.extensions); these properties
-// are no longer read or written.
+// DEPRECATED (retained for repository compatibility only): per-site TOTP settings now live in a
+// file-backed OSGi factory configuration (PID org.jahia.modules.mfa.extensions.site, one .cfg per
+// site) read and written through MfaSiteConfigService - NOT this mixin. The mixin and all its
+// properties are kept so existing site nodes that still carry them stay valid; nothing reads or
+// writes them anymore. (`enforced`/`graceDays` were already dead: enforcement is global, PID
+// org.jahia.modules.mfa.extensions.)
 [upaTotp:siteSettings] mixin
  - upaTotp:enabled (boolean) = false autocreated
  - upaTotp:enforced (boolean) = false autocreated

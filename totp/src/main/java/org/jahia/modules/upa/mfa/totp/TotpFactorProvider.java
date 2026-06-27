@@ -175,13 +175,7 @@ public class TotpFactorProvider implements MfaFactorProvider {
             public boolean isSiteApplicable(String userId, String siteKey) throws MfaException {
                 // Load the per-site settings ONCE and check both enabled and group scope against
                 // that single snapshot.
-                TotpSiteSettingsStore.TotpSiteSettings settings;
-                try {
-                    settings = siteSettingsStore.load(siteKey);
-                } catch (RepositoryException e) {
-                    logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
-                    throw new MfaException(ERROR_INTERNAL);
-                }
+                TotpSiteSettingsStore.TotpSiteSettings settings = siteSettingsStore.load(siteKey);
                 if (!settings.isEnabled()) {
                     return false;
                 }

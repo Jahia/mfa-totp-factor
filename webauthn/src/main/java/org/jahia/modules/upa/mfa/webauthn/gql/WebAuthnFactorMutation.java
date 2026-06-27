@@ -23,7 +23,6 @@ import org.jahia.modules.upa.mfa.webauthn.WebAuthnCredentialStore;
 import org.jahia.modules.upa.mfa.webauthn.WebAuthnManagementRateLimiter;
 import org.jahia.modules.upa.mfa.webauthn.WebAuthnService;
 import org.jahia.modules.upa.mfa.webauthn.WebAuthnSiteSettingsStore;
-import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.usermanager.JahiaUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -265,14 +264,15 @@ public class WebAuthnFactorMutation {
         if (StringUtils.isBlank(siteKey)) {
             throw new DataFetchingException("siteKey must not be blank");
         }
-        JCRSessionWrapper session = WebAuthnAdminAccess.requireSiteAdmin(siteKey);
+        // Authorization gate (site admin). No JCR write anymore - persistence is the per-site .cfg.
+        WebAuthnAdminAccess.requireSiteAdmin(siteKey);
         try {
-            siteSettingsStore.save(session, siteKey, new WebAuthnSiteSettingsStore.WebAuthnSiteSettings(
+            siteSettingsStore.save(siteKey, new WebAuthnSiteSettingsStore.WebAuthnSiteSettings(
                     enabled, enabledGroups));
             auditLog.recordEvent("setSiteSettings", OUTCOME_SUCCESS, currentUserName(), siteKey,
                     "enabled=" + enabled);
             return new WebAuthnSiteSettingsResult(siteKey, enabled, enabledGroups);
-        } catch (RepositoryException e) {
+        } catch (IOException e) {
             logger.warn("Failed to save WebAuthn site settings for {}: {}", siteKey, e.getMessage());
             throw new DataFetchingException(ERROR_INTERNAL);
         }

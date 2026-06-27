@@ -26,10 +26,12 @@
  - upaWebauthn:failedAttempts (long) = '0' autocreated protected
  - upaWebauthn:windowStart (long) = '0' autocreated protected
 
-// Per-site WebAuthn policy — mirrors upaTotp:siteSettings.
-// DEPRECATED: `enforced`/`graceDays` are retained for repository compatibility only — enforcement
-// (and its grace window) is now global (PID org.jahia.modules.mfa.extensions); these properties
-// are no longer read or written.
+// DEPRECATED (retained for repository compatibility only): per-site WebAuthn settings now live in a
+// file-backed OSGi factory configuration (PID org.jahia.modules.mfa.extensions.site, one .cfg per
+// site) read and written through MfaSiteConfigService - NOT this mixin. The mixin and all its
+// properties are kept so existing site nodes that still carry them stay valid; nothing reads or
+// writes them anymore. (`enforced`/`graceDays` were already dead: enforcement is global, PID
+// org.jahia.modules.mfa.extensions.)
 [upaWebauthn:siteSettings] mixin
  - upaWebauthn:enabled (boolean) = false autocreated
  - upaWebauthn:enforced (boolean) = false autocreated

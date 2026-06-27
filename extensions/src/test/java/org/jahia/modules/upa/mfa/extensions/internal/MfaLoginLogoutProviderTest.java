@@ -1,10 +1,13 @@
 package org.jahia.modules.upa.mfa.extensions.internal;
 
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfigService;
 import org.junit.Test;
 
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Proxy;
+import java.util.Dictionary;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Map;
 
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginLogoutProvider.appendRedirect;
@@ -228,5 +231,42 @@ public class MfaLoginLogoutProviderTest {
         assertNull(appendRedirect(null, "/page.html"));
         assertEquals("/login.html", appendRedirect("/login.html", null));
         assertEquals("/login.html", appendRedirect("/login.html", " "));
+    }
+
+    // --- per-site URL from the file-backed config service ------------------------------------
+
+    /** Build a config service populated as if FileInstall delivered one site's {@code .cfg}. */
+    private static MfaSiteConfigService configServiceWith(String siteKey, String loginUrl, String logoutUrl) {
+        MfaSiteConfigService service = new MfaSiteConfigService();
+        Dictionary<String, Object> props = new Hashtable<>();
+        props.put("siteKey", siteKey);
+        if (loginUrl != null) {
+            props.put("loginUrl", loginUrl);
+        }
+        if (logoutUrl != null) {
+            props.put("logoutUrl", logoutUrl);
+        }
+        service.updated("pid-" + siteKey, props);
+        return service;
+    }
+
+    @Test
+    public void perSiteUrlFromConfigServiceWinsOverGlobalAndCarriesRedirect() {
+        MfaLoginLogoutProvider provider = providerWith("/global/login.html", null);
+        provider.setSiteConfigService(configServiceWith("digitall", "/login.html", null));
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("siteKey", "digitall"); // resolveSiteKey reads the request 'siteKey' attribute
+        assertEquals("/login.html?redirect=%2Fstart",
+                provider.getLoginUrl(request("/start", null, null, attrs)));
+    }
+
+    @Test
+    public void unsafePerSiteUrlFromAHandEditedCfgIsIgnoredAndFallsBackToGlobal() {
+        MfaLoginLogoutProvider provider = providerWith("/global/login.html", null);
+        provider.setSiteConfigService(configServiceWith("digitall", "https://evil.example/x", null));
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("siteKey", "digitall");
+        assertEquals("/global/login.html?redirect=%2Fstart",
+                provider.getLoginUrl(request("/start", null, null, attrs)));
     }
 }

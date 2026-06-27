@@ -9,12 +9,13 @@ import javax.jcr.RepositoryException;
 /**
  * Exposes WebAuthn's per-site activation and per-user registration state to the shared
  * factor-agnostic infrastructure in the {@code mfa-factors-extensions} bundle (the
- * {@code /cms/login} gate, the global enforcement policy), through the {@link MfaSiteProvider}
- * SPI. WebAuthn has no custom per-site login/logout pages of its own, so the URL methods keep
- * the SPI defaults ({@code null} — defer to the global config / Jahia default).
+ * {@code /cms/login} gate and the global enforcement policy), through the {@link MfaSiteProvider}
+ * SPI.
  * <p>
- * These queries feed access-control decisions, which must fail CLOSED, so a JCR error is
- * rethrown unchecked rather than swallowed.
+ * Per-site activation now comes from the file-backed {@code MfaSiteConfigService} (via
+ * {@link WebAuthnSiteSettingsStore}), an in-memory read that does not throw. Per-user registration
+ * state still comes from the JCR; that feeds an access-control decision which must fail CLOSED, so
+ * a JCR error is rethrown unchecked rather than swallowed.
  */
 @Component(service = MfaSiteProvider.class, immediate = true)
 public class WebAuthnSiteProvider implements MfaSiteProvider {
@@ -39,21 +40,12 @@ public class WebAuthnSiteProvider implements MfaSiteProvider {
 
     @Override
     public boolean isEnabledForSite(String siteKey) {
-        try {
-            return siteSettingsStore.load(siteKey).isEnabled();
-        } catch (RepositoryException e) {
-            // Access-control callers fail CLOSED: propagate so an unhealthy repository blocks.
-            throw new IllegalStateException("Could not read WebAuthn settings for site " + siteKey, e);
-        }
+        return siteSettingsStore.load(siteKey).isEnabled();
     }
 
     @Override
     public boolean isAnySiteEnabled() {
-        try {
-            return siteSettingsStore.isAnySiteEnabled();
-        } catch (RepositoryException e) {
-            throw new IllegalStateException("Could not evaluate WebAuthn activation across sites", e);
-        }
+        return siteSettingsStore.isAnySiteEnabled();
     }
 
     @Override

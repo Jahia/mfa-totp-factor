@@ -1,40 +1,40 @@
 package org.jahia.modules.upa.mfa.webauthn;
 
-import org.jahia.modules.upa.mfa.extensions.MfaSiteSettingsStoreBase;
-import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfig;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfigService;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.PathNotFoundException;
-import javax.jcr.RepositoryException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Reads and writes the {@code upaWebauthn:siteSettings} mixin on site nodes — the per-site
- * WebAuthn policy (enabled / enabledGroups). Mirrors {@code TotpSiteSettingsStore} (without the
- * login/logout URL fields, which are TOTP-specific); the shared read/query/write helpers live in
- * {@link MfaSiteSettingsStoreBase}. Enforcement (and its grace window) is GLOBAL — see the
- * extensions {@code MfaGlobalPolicy}; the legacy per-site
- * {@code upaWebauthn:enforced}/{@code upaWebauthn:graceDays} properties remain in the CND for
- * repository compatibility but are no longer read or written.
+ * Reads and writes the per-site WebAuthn policy (enabled / enabledGroups), backed by the file OSGi
+ * <b>factory</b> configuration in {@link MfaSiteConfigService} (PID
+ * {@code org.jahia.modules.mfa.extensions.site}, one {@code .cfg} per site) — no longer the JCR.
+ * Mirrors {@code TotpSiteSettingsStore} without the login/logout URL fields (those are
+ * factor-agnostic and owned by the shared per-site config). Enforcement (and its grace window) is
+ * GLOBAL — see the extensions {@code MfaGlobalPolicy}.
+ * <p>
+ * Writes go through {@link MfaSiteConfigService#save}, which merges only this factor's slice so a
+ * concurrent TOTP write (which also carries the shared URLs) is never clobbered. Authorization is
+ * enforced in the GraphQL layer ({@code MfaAdminAccess}).
  */
 @Component(service = WebAuthnSiteSettingsStore.class, immediate = true)
-public class WebAuthnSiteSettingsStore extends MfaSiteSettingsStoreBase {
+public class WebAuthnSiteSettingsStore {
 
     private static final Logger logger = LoggerFactory.getLogger(WebAuthnSiteSettingsStore.class);
 
-    public static final String MIXIN_SITE_SETTINGS = "upaWebauthn:siteSettings";
-    public static final String PROP_ENABLED = "upaWebauthn:enabled";
-    public static final String PROP_ENABLED_GROUPS = "upaWebauthn:enabledGroups";
+    private MfaSiteConfigService siteConfigService;
 
-    @Override protected String mixinSiteSettings()  { return MIXIN_SITE_SETTINGS; }
-    @Override protected String propEnabled()        { return PROP_ENABLED; }
-    @Override protected String propEnabledGroups()  { return PROP_ENABLED_GROUPS; }
+    @Reference
+    public void setSiteConfigService(MfaSiteConfigService siteConfigService) {
+        this.siteConfigService = siteConfigService;
+    }
 
     /** Snapshot of the WebAuthn settings for a site. */
     public static final class WebAuthnSiteSettings {
@@ -54,37 +54,31 @@ public class WebAuthnSiteSettingsStore extends MfaSiteSettingsStoreBase {
         public List<String> getEnabledGroups() { return enabledGroups; }
     }
 
-    public WebAuthnSiteSettings load(String siteKey) throws RepositoryException {
-        if (siteKey == null || siteKey.isEmpty()) {
-            return WebAuthnSiteSettings.DISABLED;
-        }
-        return JCRTemplate.getInstance().doExecuteWithSystemSession(systemSession -> {
-            JCRNodeWrapper siteNode;
-            try {
-                siteNode = systemSession.getNode("/sites/" + siteKey);
-            } catch (PathNotFoundException e) {
-                return WebAuthnSiteSettings.DISABLED;
-            }
-            if (!siteNode.isNodeType(MIXIN_SITE_SETTINGS)) {
-                return WebAuthnSiteSettings.DISABLED;
-            }
-            return new WebAuthnSiteSettings(readEnabled(siteNode), readGroups(siteNode));
-        });
+    /**
+     * Read the settings for the given site key. Returns {@link WebAuthnSiteSettings#DISABLED} when
+     * the site has no per-site config — "no config" means WebAuthn is OFF for that site.
+     */
+    public WebAuthnSiteSettings load(String siteKey) {
+        MfaSiteConfig config = siteConfigService.getConfig(siteKey);
+        return new WebAuthnSiteSettings(config.isEnabled(WebAuthnFactorProvider.FACTOR_TYPE),
+                config.enabledGroups(WebAuthnFactorProvider.FACTOR_TYPE));
+    }
+
+    /** Whether at least one site currently has WebAuthn enabled. */
+    public boolean isAnySiteEnabled() {
+        return siteConfigService.anySiteEnabled(WebAuthnFactorProvider.FACTOR_TYPE);
     }
 
     /**
-     * Persist the settings via the caller's (admin) session. The caller MUST have validated
-     * site-admin access.
+     * Persist the settings to the site's {@code .cfg}. The caller MUST have already validated
+     * site-administrator access.
+     *
+     * @throws IOException when the {@code .cfg} cannot be written
      */
-    public void save(JCRSessionWrapper session, String siteKey, WebAuthnSiteSettings settings)
-            throws RepositoryException {
-        if (siteKey == null || siteKey.isEmpty()) {
-            throw new IllegalArgumentException("siteKey must not be empty");
-        }
-        JCRNodeWrapper siteNode = session.getNode("/sites/" + siteKey);
-        List<String> cleaned = writeEnabledAndGroups(siteNode, settings.isEnabled(), settings.getEnabledGroups());
-        session.save();
+    public void save(String siteKey, WebAuthnSiteSettings settings) throws IOException {
+        siteConfigService.save(siteKey, current -> current.withFactor(
+                WebAuthnFactorProvider.FACTOR_TYPE, settings.isEnabled(), settings.getEnabledGroups()));
         logger.info("WebAuthn site settings saved for {}: enabled={}, groups={}",
-                siteKey, settings.isEnabled(), cleaned);
+                siteKey, settings.isEnabled(), settings.getEnabledGroups());
     }
 }

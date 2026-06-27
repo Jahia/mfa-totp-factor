@@ -78,14 +78,9 @@ public class TotpFactorQuery {
     @GraphQLName("siteSettings")
     @GraphQLDescription("Per-site TOTP settings. Public-read so the login UI can decide whether to render a TOTP step at all.")
     public TotpSiteSettingsResult siteSettings(@GraphQLName("siteKey") @GraphQLNonNull String siteKey) {
-        try {
-            TotpSiteSettingsStore.TotpSiteSettings s = siteSettingsStore.load(siteKey);
-            return new TotpSiteSettingsResult(siteKey, s.isEnabled(),
-                    s.getEnabledGroups(), s.getLoginUrl(), s.getLogoutUrl());
-        } catch (RepositoryException e) {
-            logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
-            throw new DataFetchingException(ERROR_INTERNAL);
-        }
+        TotpSiteSettingsStore.TotpSiteSettings s = siteSettingsStore.load(siteKey);
+        return new TotpSiteSettingsResult(siteKey, s.isEnabled(),
+                s.getEnabledGroups(), s.getLoginUrl(), s.getLogoutUrl());
     }
 
     @GraphQLField

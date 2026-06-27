@@ -1,52 +1,42 @@
 package org.jahia.modules.upa.mfa.totp;
 
-import org.jahia.modules.upa.mfa.extensions.MfaSiteSettingsStoreBase;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfig;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfigService;
 import org.jahia.modules.upa.mfa.extensions.MfaUrls;
-import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.PathNotFoundException;
-import javax.jcr.RepositoryException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Reads and writes the {@code upaTotp:siteSettings} mixin on site nodes.
+ * Reads and writes the per-site TOTP policy (enabled / enabledGroups) plus the factor-agnostic
+ * per-site login/logout URLs, backed by the file OSGi <b>factory</b> configuration in
+ * {@link MfaSiteConfigService} (PID {@code org.jahia.modules.mfa.extensions.site}, one {@code .cfg}
+ * per site) — no longer the JCR. Enforcement (and its grace window) is GLOBAL — see the extensions
+ * {@code MfaGlobalPolicy}.
  * <p>
- * Per-site policy:
- * <ul>
- *   <li>{@code enabled}  — whether TOTP MFA is active on this site. When false the
- *       {@link TotpFactorProvider} short-circuits with a "skipped" marker.</li>
- *   <li>{@code enabledGroups} — if non-empty, the policy applies ONLY to members of these
- *       groups (e.g. {@code editors}); empty = all users of the site.</li>
- * </ul>
- * Enforcement (and its grace window) is GLOBAL — see the extensions {@code MfaGlobalPolicy}.
- * The legacy per-site {@code upaTotp:enforced}/{@code upaTotp:graceDays} properties remain in
- * the CND for repository compatibility but are no longer read or written.
- * <p>
- * Reads go through a system session. Writes go through the caller-provided session because
- * they are gated by a {@code siteAdmin} permission check in the GraphQL layer — the standard
- * Jahia ACL applies.
+ * Writes go through {@link MfaSiteConfigService#save}, which merges only this factor's slice (and
+ * the shared URLs) so a concurrent WebAuthn write is never clobbered. Authorization is enforced in
+ * the GraphQL layer ({@code MfaAdminAccess}); the URL open-redirect guard
+ * ({@link MfaUrls#validateSiteRelativeUrl}) is applied here as the single chokepoint every writer
+ * goes through.
  */
 @Component(service = TotpSiteSettingsStore.class, immediate = true)
-public class TotpSiteSettingsStore extends MfaSiteSettingsStoreBase {
+public class TotpSiteSettingsStore {
 
     private static final Logger logger = LoggerFactory.getLogger(TotpSiteSettingsStore.class);
 
-    public static final String MIXIN_SITE_SETTINGS = "upaTotp:siteSettings";
-    public static final String PROP_ENABLED = "upaTotp:enabled";
-    public static final String PROP_ENABLED_GROUPS = "upaTotp:enabledGroups";
-    public static final String PROP_LOGIN_URL = "upaTotp:loginUrl";
-    public static final String PROP_LOGOUT_URL = "upaTotp:logoutUrl";
+    private MfaSiteConfigService siteConfigService;
 
-    @Override protected String mixinSiteSettings()  { return MIXIN_SITE_SETTINGS; }
-    @Override protected String propEnabled()        { return PROP_ENABLED; }
-    @Override protected String propEnabledGroups()  { return PROP_ENABLED_GROUPS; }
+    @Reference
+    public void setSiteConfigService(MfaSiteConfigService siteConfigService) {
+        this.siteConfigService = siteConfigService;
+    }
 
     /** Snapshot of the TOTP settings for a site. */
     public static final class TotpSiteSettings {
@@ -78,73 +68,37 @@ public class TotpSiteSettingsStore extends MfaSiteSettingsStoreBase {
     }
 
     /**
-     * Read the settings for the given site key via a JCR system session.
-     * Returns {@link TotpSiteSettings#DISABLED} if the site is missing, blank, or has
-     * never had the mixin applied — "no config" means TOTP is OFF for that site.
+     * Read the settings for the given site key. Returns {@link TotpSiteSettings#DISABLED} when the
+     * site has no per-site config — "no config" means TOTP is OFF for that site.
      */
-    public TotpSiteSettings load(String siteKey) throws RepositoryException {
-        if (siteKey == null || siteKey.isEmpty()) {
-            return TotpSiteSettings.DISABLED;
-        }
-        return JCRTemplate.getInstance().doExecuteWithSystemSession(systemSession -> {
-            JCRNodeWrapper siteNode;
-            try {
-                siteNode = systemSession.getNode("/sites/" + siteKey);
-            } catch (PathNotFoundException e) {
-                return TotpSiteSettings.DISABLED;
-            }
-            if (!siteNode.isNodeType(MIXIN_SITE_SETTINGS)) {
-                return TotpSiteSettings.DISABLED;
-            }
-            return new TotpSiteSettings(readEnabled(siteNode), readGroups(siteNode),
-                    readString(siteNode, PROP_LOGIN_URL), readString(siteNode, PROP_LOGOUT_URL));
-        });
+    public TotpSiteSettings load(String siteKey) {
+        MfaSiteConfig config = siteConfigService.getConfig(siteKey);
+        return new TotpSiteSettings(config.isEnabled(TotpFactorProvider.FACTOR_TYPE),
+                config.enabledGroups(TotpFactorProvider.FACTOR_TYPE),
+                config.getLoginUrl(), config.getLogoutUrl());
     }
 
-    /** Read a single-valued string property as a trimmed, non-empty value (or {@code null}). */
-    private static String readString(JCRNodeWrapper siteNode, String property) throws RepositoryException {
-        if (!siteNode.hasProperty(property)) {
-            return null;
-        }
-        String value = siteNode.getProperty(property).getString();
-        return (value == null || value.trim().isEmpty()) ? null : value.trim();
+    /** Whether at least one site currently has TOTP enabled. */
+    public boolean isAnySiteEnabled() {
+        return siteConfigService.anySiteEnabled(TotpFactorProvider.FACTOR_TYPE);
     }
 
     /**
-     * Persist the settings via the caller's session (i.e. the authenticated admin's session).
-     * The caller MUST have already validated site-administrator access — this method does no
-     * permission check of its own. It DOES validate the values: the URLs must be safe
-     * server-relative paths (see {@link MfaUrls#validateSiteRelativeUrl}) — this is the single
-     * chokepoint every writer goes through, so the open-redirect guard cannot be bypassed by a
-     * future caller.
+     * Persist the settings to the site's {@code .cfg}. The caller MUST have already validated
+     * site-administrator access — this method does no permission check of its own. It DOES validate
+     * the values: the URLs must be safe server-relative paths
+     * ({@link MfaUrls#validateSiteRelativeUrl}).
      *
      * @throws IllegalArgumentException when a URL is not a safe server-relative path
+     * @throws IOException              when the {@code .cfg} cannot be written
      */
-    public void save(JCRSessionWrapper session, String siteKey, TotpSiteSettings settings)
-            throws RepositoryException {
-        if (siteKey == null || siteKey.isEmpty()) {
-            throw new IllegalArgumentException("siteKey must not be empty");
-        }
+    public void save(String siteKey, TotpSiteSettings settings) throws IOException {
         String cleanLoginUrl = MfaUrls.validateSiteRelativeUrl(settings.getLoginUrl());
         String cleanLogoutUrl = MfaUrls.validateSiteRelativeUrl(settings.getLogoutUrl());
-        JCRNodeWrapper siteNode = session.getNode("/sites/" + siteKey);
-        List<String> cleaned = writeEnabledAndGroups(siteNode, settings.isEnabled(), settings.getEnabledGroups());
-        setOrRemove(siteNode, PROP_LOGIN_URL, cleanLoginUrl);
-        setOrRemove(siteNode, PROP_LOGOUT_URL, cleanLogoutUrl);
-        session.save();
+        siteConfigService.save(siteKey, current -> current
+                .withFactor(TotpFactorProvider.FACTOR_TYPE, settings.isEnabled(), settings.getEnabledGroups())
+                .withUrls(cleanLoginUrl, cleanLogoutUrl));
         logger.info("TOTP site settings saved for {}: enabled={}, groups={}, loginUrl={}, logoutUrl={}",
-                siteKey, settings.isEnabled(), cleaned, cleanLoginUrl, cleanLogoutUrl);
-    }
-
-    /** Set a single-valued string property to its trimmed value, or remove it when blank. */
-    private static void setOrRemove(JCRNodeWrapper siteNode, String property, String value) throws RepositoryException {
-        String trimmed = (value == null) ? null : value.trim();
-        if (trimmed == null || trimmed.isEmpty()) {
-            if (siteNode.hasProperty(property)) {
-                siteNode.getProperty(property).remove();
-            }
-        } else {
-            siteNode.setProperty(property, trimmed);
-        }
+                siteKey, settings.isEnabled(), settings.getEnabledGroups(), cleanLoginUrl, cleanLogoutUrl);
     }
 }

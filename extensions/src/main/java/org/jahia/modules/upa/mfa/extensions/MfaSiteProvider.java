@@ -2,10 +2,10 @@ package org.jahia.modules.upa.mfa.extensions;
 
 /**
  * SPI implemented by every MFA factor (TOTP, WebAuthn, ...) so that the shared, factor-agnostic
- * infrastructure in this bundle — the {@code /cms/login} gate, the login/logout URL provider and
- * the global enforcement policy ({@link MfaGlobalPolicy}) — can reason about per-site activation,
- * per-user configuration state and per-site login pages without depending on any individual
- * factor module.
+ * infrastructure in this bundle (the {@code /cms/login} gate and the global enforcement policy,
+ * {@link MfaGlobalPolicy}) can reason about per-site activation and per-user configuration state
+ * without depending on any individual factor module. Per-site login/logout URLs are no longer a
+ * factor concern: they are factor-agnostic and read directly from {@link MfaSiteConfigService}.
  *
  * <p>This inverts the dependency: {@code totp}/{@code webauthn} depend on {@code extensions} (for
  * {@link BackupCodes} and {@link MfaGlobalPolicy}), and in turn register an implementation of this
@@ -69,23 +69,5 @@ public interface MfaSiteProvider {
      */
     default boolean isForeignFactor() {
         return false;
-    }
-
-    /**
-     * @param siteKey the JCR site key (never {@code null})
-     * @return a site-relative login URL configured for the site, or {@code null} when this factor
-     * has no per-site override (the default).
-     */
-    default String getLoginUrl(String siteKey) {
-        return null;
-    }
-
-    /**
-     * @param siteKey the JCR site key (never {@code null})
-     * @return a site-relative logout URL configured for the site, or {@code null} when this factor
-     * has no per-site override (the default).
-     */
-    default String getLogoutUrl(String siteKey) {
-        return null;
     }
 }

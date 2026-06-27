@@ -1,7 +1,8 @@
 package org.jahia.modules.upa.mfa.extensions.internal;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfig;
+import org.jahia.modules.upa.mfa.extensions.MfaSiteConfigService;
 import org.jahia.modules.upa.mfa.extensions.MfaUrls;
 import org.jahia.params.valves.LoginUrlProvider;
 import org.jahia.params.valves.LogoutUrlProvider;
@@ -12,8 +13,6 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,9 +20,7 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -41,9 +38,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * The target URLs are resolved <b>per request</b>, with a per-site override taking precedence
  * over a global default:
  * <ol>
- *   <li><b>per-site</b> — the first non-blank, safe {@code loginUrl} / {@code logoutUrl} reported
- *       by any registered {@link MfaSiteProvider} for the request's site (each factor surfaces its
- *       own per-site administration values through the SPI); falling back to</li>
+ *   <li><b>per-site</b> — the non-blank, safe {@code loginUrl} / {@code logoutUrl} configured for
+ *       the request's site in {@link MfaSiteConfigService} (the file-backed per-site config);
+ *       falling back to</li>
  *   <li><b>global</b> — the {@code loginUrl} / {@code logoutUrl} keys of the shared OSGi
  *       configuration (PID {@code org.jahia.modules.mfa.extensions}); falling back to</li>
  *   <li><b>none</b> — {@code null}, i.e. Jahia's default {@code /cms/login} / logout handling.</li>
@@ -57,8 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code true} is required for per-site logout URLs (unknowable at bind time) to ever be consulted;
  * when nothing is configured for the request's site, {@code getLogoutUrl} returns {@code null} and
  * Jahia applies its default logout. The trade-off is that, while deployed, this module occupies the
- * first logout-provider slot. The {@link MfaSiteProvider} reference is optional ({@code 0..n}) so
- * this component registers — and claims that slot — even before any factor binds.
+ * first logout-provider slot.
  * <p>
  * The global URLs live in an {@link AtomicReference} refreshed by {@link #activate(Map)} (bound to
  * {@code @Modified}), so an operator can change the default by editing the {@code .cfg} with no
@@ -84,18 +80,16 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
     private final AtomicReference<String> loginUrl = new AtomicReference<>();
     private final AtomicReference<String> logoutUrl = new AtomicReference<>();
 
-    /** Each factor's per-site URL view. Read-heavy on the request path → copy-on-write. */
-    private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
+    /**
+     * Per-site config (URLs are factor-agnostic and live here). Mandatory static reference: both
+     * this provider and the service are immediate components of this same bundle. May be {@code
+     * null} only in a unit test that does not exercise the per-site path.
+     */
+    private MfaSiteConfigService siteConfigService;
 
-    @Reference(service = MfaSiteProvider.class,
-            cardinality = ReferenceCardinality.MULTIPLE,
-            policy = ReferencePolicy.DYNAMIC)
-    public void bindSiteProvider(MfaSiteProvider provider) {
-        siteProviders.add(provider);
-    }
-
-    public void unbindSiteProvider(MfaSiteProvider provider) {
-        siteProviders.remove(provider);
+    @Reference
+    public void setSiteConfigService(MfaSiteConfigService siteConfigService) {
+        this.siteConfigService = siteConfigService;
     }
 
     @Activate
@@ -224,39 +218,18 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
     }
 
     /**
-     * The first non-blank, safe {@code loginUrl}/{@code logoutUrl} any registered factor reports
-     * for the request's site, or {@code null}. A provider that throws is skipped (fail to "no
-     * custom URL" → Jahia default), and an unsafe value is skipped (open-redirect guard).
+     * The safe per-site {@code loginUrl}/{@code logoutUrl} configured for the request's site, or
+     * {@code null}. URLs are factor-agnostic and read straight from {@link MfaSiteConfigService}.
+     * An unsafe value (a hand-edited {@code .cfg}) is skipped by the open-redirect guard — stores
+     * validate on save, but a value written directly to the file must never redirect off-site.
      */
     private String perSiteUrl(HttpServletRequest request, boolean login) {
         String siteKey = resolveSiteKey(request);
-        if (StringUtils.isBlank(siteKey)) {
+        if (StringUtils.isBlank(siteKey) || siteConfigService == null) {
             return null;
         }
-        for (MfaSiteProvider provider : siteProviders) {
-            String url = safeUrlFrom(provider, siteKey, login);
-            if (url != null) {
-                return url;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * The safe per-site URL a single factor reports, or {@code null} when it reports nothing,
-     * throws (→ "no custom URL", Jahia default), or reports an unsafe value (open-redirect guard:
-     * stores validate on save, but values written before that guard existed — or via direct JCR
-     * tooling — must never be allowed to redirect the login flow off-site).
-     */
-    private String safeUrlFrom(MfaSiteProvider provider, String siteKey, boolean login) {
-        String url;
-        try {
-            url = login ? provider.getLoginUrl(siteKey) : provider.getLogoutUrl(siteKey);
-        } catch (RuntimeException e) {
-            logger.debug("Failed to read per-site MFA {} URL from {} for site {}: {}",
-                    login ? "login" : "logout", provider.getClass().getName(), siteKey, e.getMessage());
-            return null;
-        }
+        MfaSiteConfig config = siteConfigService.getConfig(siteKey);
+        String url = login ? config.getLoginUrl() : config.getLogoutUrl();
         if (StringUtils.isBlank(url)) {
             return null;
         }

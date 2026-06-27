@@ -78,12 +78,8 @@ public class WebAuthnFactorQuery {
     @GraphQLName("siteSettings")
     @GraphQLDescription("The per-site WebAuthn policy (public; the login UI reads it to decide whether to offer WebAuthn).")
     public WebAuthnSiteSettingsResult siteSettings(@GraphQLName("siteKey") @GraphQLNonNull String siteKey) {
-        try {
-            WebAuthnSiteSettingsStore.WebAuthnSiteSettings s = siteSettingsStore.load(siteKey);
-            return new WebAuthnSiteSettingsResult(siteKey, s.isEnabled(), s.getEnabledGroups());
-        } catch (RepositoryException e) {
-            throw new DataFetchingException(ERROR_INTERNAL);
-        }
+        WebAuthnSiteSettingsStore.WebAuthnSiteSettings s = siteSettingsStore.load(siteKey);
+        return new WebAuthnSiteSettingsResult(siteKey, s.isEnabled(), s.getEnabledGroups());
     }
 
     @GraphQLField
