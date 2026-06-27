@@ -206,6 +206,13 @@
 .main h2 {
   color: inherit;
 }
+/* Each step moves focus to its heading for step-change focus management (WCAG 2.4.3). The heading
+   is tabIndex=-1 (programmatic focus only, never keyboard-reachable), so the UA focus ring just
+   draws a stray box around the title - suppress it. Does not affect 2.4.7, which covers
+   keyboard-focusable controls (the buttons/links keep their visible focus styles). */
+.main h2:focus {
+  outline: none;
+}
 .main a {
   color: #00538b;
 }
