@@ -19,6 +19,7 @@ import {
     createSiteWithTotpLoginPage,
     createUserForMFA,
     enrollUserInTotp,
+    fillOtp,
     getTotpLoginPageURL,
     setGlobalEnforcement,
     setSiteTotpSettings,
@@ -127,8 +128,7 @@ describe('Email-code factor at sign-in', () => {
         // Email verification screen: a code was generated and sent through Mailpit.
         cy.get('[data-testid="email-verification-code"]', {timeout: 30000}).should('be.visible');
         withEmailedCode(code => {
-            cy.get('[data-testid="email-verification-code"]').type(code);
-            cy.get('[data-testid="email-verification-submit"]').click();
+            fillOtp('email-verification-code', code);
         });
 
         // The remaining totp factor skips itself (pick-one satisfied by the genuine email
@@ -149,8 +149,7 @@ describe('Email-code factor at sign-in', () => {
         // Strictly-next TOTP window, avoiding replay of the enrollment code.
         cy.wait(31000);
         cy.wrap(null).then(() => {
-            cy.get('[data-testid="verification-code"]').type(totpCode(secret));
-            cy.get('[data-testid="verification-submit"]').click();
+            fillOtp('verification-code', totpCode(secret));
         });
 
         // The foreign drain marks email_code verified server-side: login completes without
@@ -170,8 +169,7 @@ describe('Email-code factor at sign-in', () => {
         cy.get('[data-testid="email-verification-code"]', {timeout: 30000}).should('be.visible');
         cy.get('[data-testid="factor-choose-totp"]').should('not.exist');
         withEmailedCode(code => {
-            cy.get('[data-testid="email-verification-code"]').type(code);
-            cy.get('[data-testid="email-verification-submit"]').click();
+            fillOtp('email-verification-code', code);
         });
 
         cy.location('pathname', {timeout: 30000}).should('not.contain', '/myLoginPage.html');

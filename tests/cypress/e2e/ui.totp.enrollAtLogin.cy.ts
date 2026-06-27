@@ -17,6 +17,7 @@ import {
     createSiteWithTotpLoginPage,
     createUserForMFA,
     deleteTotpLoginSite,
+    fillOtp,
     getTotpLoginPageURL,
     installTotpMFAConfig,
     setGlobalEnforcement,
@@ -75,8 +76,7 @@ describe('TOTP inline enrollment at sign-in (UI)', () => {
             .then(rawSecret => {
                 const secret = rawSecret.replace(/\s+/g, '');
                 expect(secret, 'displayed secret').to.have.length.greaterThan(10);
-                cy.get('[data-testid="enroll-code-input"]').type(totpCode(secret));
-                cy.get('[data-testid="enroll-confirm-btn"]').click();
+                fillOtp('enroll-code-input', totpCode(secret));
             });
 
         // Stage 3: one-shot backup codes — the server already completed the MFA session
@@ -106,8 +106,7 @@ describe('TOTP inline enrollment at sign-in (UI)', () => {
             .invoke('text')
             .then(rawSecret => {
                 const secret = rawSecret.replace(/\s+/g, '');
-                cy.get('[data-testid="enroll-code-input"]').type(totpCode(secret));
-                cy.get('[data-testid="enroll-confirm-btn"]').click();
+                fillOtp('enroll-code-input', totpCode(secret));
                 cy.get('[data-testid="enroll-backup-ack"]', {timeout: 30000}).click();
                 cy.location('pathname', {timeout: 15000}).should('not.contain', '/myLoginPage.html');
 

@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useApiRoot } from "../../hooks/ApiRootContext";
 import { prepareEmailFactor, verifyEmailCodeFactor } from "../../services";
 import classes from "./component.module.css";
@@ -6,8 +6,8 @@ import ErrorMessage from "./ErrorMessage.client";
 import { translateError } from "../../services/i18n";
 import { Trans, useTranslation } from "react-i18next";
 import type { MfaError } from "../../services/common";
-import { submitOnEnter } from "./formKeyboard";
 import ChangeMethodButton from "./ChangeMethodButton.client";
+import OtpInput from "./OtpInput.client";
 
 interface EmailCodeVerificationFormProps {
   onSuccess: (remainingFactors: string[]) => void;
@@ -23,7 +23,6 @@ export default function EmailCodeVerificationForm(
 ) {
   const { t } = useTranslation();
   const apiRoot = useApiRoot();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   // Distinguishes the very first send (full-screen spinner) from a user-triggered resend
   // (in-place sending state + confirmation), so the spinner copy is honest about what's happening.
@@ -66,13 +65,6 @@ export default function EmailCodeVerificationForm(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Focus the code field once the form is interactive (item 4 parity: effect, not setTimeout).
-  useEffect(() => {
-    if (!loading) {
-      inputRef.current?.focus();
-    }
-  }, [loading]);
-
   if (loading) {
     return (
       <div role="status" aria-live="polite">
@@ -81,14 +73,11 @@ export default function EmailCodeVerificationForm(
     );
   }
 
-  const handleCodeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH));
-  };
-
-  const submit = () => {
-    if (code.length !== CODE_LENGTH || submitting) return;
+  const submit = (codeOverride?: string) => {
+    const value = codeOverride ?? code;
+    if (value.length !== CODE_LENGTH || submitting) return;
     setSubmitting(true);
-    verifyEmailCodeFactor(apiRoot, code)
+    verifyEmailCodeFactor(apiRoot, value)
       .then((result) => {
         if (result.success) {
           setError("");
@@ -122,25 +111,18 @@ export default function EmailCodeVerificationForm(
         </p>
       )}
       <form onSubmit={handleSubmit}>
-        <div style={{ textAlign: "center" }}>
-          <input
-            ref={inputRef}
-            id="emailVerificationCode"
-            name="emailVerificationCode"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            value={code}
-            onChange={handleCodeChange}
-            onKeyDown={submitOnEnter(submit)}
-            aria-label={t("factor.email_code.codeInputLabel")}
-            aria-describedby="emailCode-error"
-            data-testid="email-verification-code"
-            className={classes.otpInput}
-            required
-          />
-        </div>
+        <OtpInput
+          length={CODE_LENGTH}
+          value={code}
+          onChange={setCode}
+          onComplete={(v) => submit(v)}
+          disabled={submitting}
+          autoFocus
+          groupLabel={t("factor.email_code.codeInputLabel")}
+          digitLabel={(index, count) => t("factor.otp.digitLabel", { index, count })}
+          describedById="emailCode-error"
+          testId="email-verification-code"
+        />
         <ErrorMessage message={error} id="emailCode-error" />
         {/* Confirmation after a successful resend, announced to assistive tech (item 12). */}
         <div role="status" aria-live="polite" className={classes.helpText} data-testid="email-resent">

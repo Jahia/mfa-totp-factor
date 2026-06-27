@@ -11,6 +11,7 @@ import {
     createSiteWithTotpLoginPage,
     createUserForMFA,
     enrollUserInTotp,
+    fillOtp,
     getTotpLoginPageURL,
     installTotpMFAConfig,
     setSiteTotpSettings,
@@ -67,10 +68,10 @@ describe('TOTP login UI — Enter key submits the form', () => {
         // If Enter validated the login form, the TOTP verification step must appear.
         cy.get('[data-testid="verification-code"]', {timeout: 30000}).should('be.visible');
 
-        // Stage 2: submit a fresh code with Enter (full step boundary to avoid replay).
+        // Stage 2: submit a fresh code (auto-verifies on last digit; full step boundary to avoid replay).
         cy.wait(31000);
         cy.wrap(null).then(() => {
-            cy.get('[data-testid="verification-code"]').type(`${totpCode(secret)}{enter}`);
+            fillOtp('verification-code', totpCode(secret));
         });
 
         // Enter on the verify form must complete login and trigger the redirect.

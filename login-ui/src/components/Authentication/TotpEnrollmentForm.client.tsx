@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Trans, useTranslation } from "react-i18next";
 import { useApiRoot } from "../../hooks/ApiRootContext";
@@ -7,8 +7,8 @@ import classes from "./component.module.css";
 import ErrorMessage from "./ErrorMessage.client";
 import { translateError } from "../../services/i18n";
 import type { MfaError } from "../../services/common";
-import { submitOnEnter } from "./formKeyboard";
 import ChangeMethodButton from "./ChangeMethodButton.client";
+import OtpInput from "./OtpInput.client";
 
 interface TotpEnrollmentFormProps {
   onComplete: (remainingFactors: string[]) => void;
@@ -39,7 +39,6 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [copyConfirmation, setCopyConfirmation] = useState("");
   const remainingRef = useRef<string[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
   const backupHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -59,13 +58,6 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Focus the code input once the setup form is shown (item 4: effect, not setTimeout).
-  useEffect(() => {
-    if (phase === "setup") {
-      inputRef.current?.focus();
-    }
-  }, [phase]);
-
   // Move focus to the backup-codes heading when that phase appears (WCAG 2.4.3, item 9).
   useEffect(() => {
     if (phase === "backupCodes") {
@@ -73,16 +65,13 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
     }
   }, [phase]);
 
-  const handleCodeInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setCode(e.target.value.replace(/\D/g, "").slice(0, TOTP_CODE_LENGTH));
-  };
-
   const isCodeValid = code.length === TOTP_CODE_LENGTH;
 
-  const submit = () => {
-    if (!isCodeValid || submitting) return;
+  const submit = (codeOverride?: string) => {
+    const value = codeOverride ?? code;
+    if (value.length !== TOTP_CODE_LENGTH || submitting) return;
     setSubmitting(true);
-    confirmEnrollTotp(apiRoot, code)
+    confirmEnrollTotp(apiRoot, value)
       .then((result) => {
         if (result.success) {
           setError("");
@@ -216,28 +205,18 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
         <p className={classes.helpText}>
           <Trans i18nKey="enroll.totp.codeLabel" />
         </p>
-        <div style={{ textAlign: "center" }}>
-          <input
-            ref={inputRef}
-            id="enrollCode"
-            name="enrollCode"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="123456"
-            value={code}
-            onChange={handleCodeInputChange}
-            onKeyDown={submitOnEnter(submit)}
-            aria-label={t("enroll.totp.codeLabel")}
-            aria-describedby="enrollCode-error"
-            data-testid="enroll-code-input"
-            className={classes.otpInput}
-            required
-          />
-        </div>
+        <OtpInput
+          length={TOTP_CODE_LENGTH}
+          value={code}
+          onChange={setCode}
+          onComplete={(v) => submit(v)}
+          disabled={submitting}
+          autoFocus
+          groupLabel={t("enroll.totp.codeLabel")}
+          digitLabel={(index, count) => t("factor.otp.digitLabel", { index, count })}
+          describedById="enrollCode-error"
+          testId="enroll-code-input"
+        />
         <ErrorMessage message={error} id="enrollCode-error" />
         <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
           <button

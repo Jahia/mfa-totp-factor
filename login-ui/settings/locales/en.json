@@ -24,6 +24,7 @@
     "factor.totp.useBackupCode": "Use a backup code instead",
     "factor.totp.useAuthenticatorCode": "Use the authenticator app code instead",
     "factor.totp.codeInputLabel": "Enter authenticator code",
+    "factor.otp.digitLabel": "Digit {{index}} of {{count}}",
     "factor.totp.backupCodeHeading": "Enter a backup code",
     "factor.totp.enrollment_required": "Two-factor authentication is required. Set it up below to finish signing in.",
     "factor.webauthn.title": "Security key / passkey",

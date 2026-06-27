@@ -17,8 +17,10 @@ import {
     createSiteWithTotpLoginPage,
     createUserForMFA,
     enrollUserInTotp,
+    fillOtp,
     getTotpLoginPageURL,
     installTotpMFAConfig,
+    pasteOtp,
     setSiteTotpSettings,
     totpCode,
 } from './utils';
@@ -85,9 +87,7 @@ describe('TOTP login UI', () => {
         cy.get('[data-testid="verification-code"]', {timeout: 30000}).should('be.visible');
         cy.wait(31000);
         cy.wrap(null).then(() => {
-            const liveCode = totpCode(secret);
-            cy.get('[data-testid="verification-code"]').type(liveCode);
-            cy.get('[data-testid="verification-submit"]').click();
+            fillOtp('verification-code', totpCode(secret));
         });
 
         // Stage 3: client-side redirect lands on the site root (contextPath + "/").
@@ -106,18 +106,32 @@ describe('TOTP login UI', () => {
 
         cy.get('[data-testid="verification-code"]', {timeout: 30000}).should('be.visible');
 
-        // Wrong code → error message inline, form stays open.
-        cy.get('[data-testid="verification-code"]').type('000000');
-        cy.get('[data-testid="verification-submit"]').click();
+        // Wrong code → auto-verifies with wrong digits, error message inline, form stays open.
+        fillOtp('verification-code', '000000');
         cy.get('[data-testid="error-message"]', {timeout: 15000}).should('be.visible');
 
-        // Recover: wait a step, clear input, submit a fresh code.
+        // Recover: wait a step, submit a fresh code (fillOtp clears internally).
         cy.wait(31000);
-        cy.get('[data-testid="verification-code"]').clear();
         cy.wrap(null).then(() => {
-            cy.get('[data-testid="verification-code"]').type(totpCode(secret));
-            cy.get('[data-testid="verification-submit"]').click();
+            fillOtp('verification-code', totpCode(secret));
         });
+        cy.location('pathname', {timeout: 15000}).should('not.contain', '/myLoginPage.html');
+    });
+
+    it('signs in by pasting the TOTP code into the first box (paste + auto-verify)', () => {
+        cy.visit(getTotpLoginPageURL(SITE_KEY));
+
+        cy.get('[data-testid="login-username"]', {timeout: 30000}).should('be.visible');
+        cy.get('[data-testid="login-username"]').type(username);
+        cy.get('[data-testid="login-password"]').type(password);
+        cy.get('[data-testid="login-submit"]').click();
+
+        cy.get('[data-testid="verification-code"]', {timeout: 30000}).should('be.visible');
+        cy.wait(31000);
+        cy.wrap(null).then(() => {
+            pasteOtp('verification-code', totpCode(secret));
+        });
+
         cy.location('pathname', {timeout: 15000}).should('not.contain', '/myLoginPage.html');
     });
 
