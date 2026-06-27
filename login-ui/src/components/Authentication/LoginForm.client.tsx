@@ -105,15 +105,17 @@ export default function LoginForm(props: Readonly<LoginFormProps>) {
           />
         )}
         <ErrorMessage message={error} />
-        <button
-          type="submit"
-          disabled={inProgress}
-          aria-busy={inProgress}
-          data-testid="login-submit"
-          className={classes.submitButton}
-        >
-          {props.content.loginSubmitButtonLabel}
-        </button>
+        <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
+          <button
+            type="submit"
+            disabled={inProgress}
+            aria-busy={inProgress}
+            data-testid="login-submit"
+            className={classes.submitButton}
+          >
+            {props.content.loginSubmitButtonLabel}
+          </button>
+        </div>
       </form>
       <hr aria-hidden="true" />
       {props.content.loginAdditionalActionHtml && (
