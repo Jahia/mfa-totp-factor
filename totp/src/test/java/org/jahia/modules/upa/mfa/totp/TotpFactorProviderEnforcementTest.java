@@ -66,6 +66,10 @@ public class TotpFactorProviderEnforcementTest {
         provider.setMfaService((MfaService) Proxy.newProxyInstance(
                 getClass().getClassLoader(), new Class<?>[]{MfaService.class},
                 (proxy, method, args) -> "getMfaSession".equals(method.getName()) ? session : null));
+        // DS invokes @Activate after the @Reference setters; mirror that so the shared
+        // enforcementDecider is built. siteProviders is held by reference, so bindSiteProvider
+        // calls made later inside individual tests remain visible to the decider.
+        provider.activate();
     }
 
     private void configurePolicy(String enforcedFactors, String graceDays) {

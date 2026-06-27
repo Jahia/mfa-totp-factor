@@ -11,7 +11,13 @@ export interface Props {
    */
   siteKey?: string;
   logo?: JCRNodeWrapper;
-  /** Author-supplied alt text for the logo; falls back to the site title server-side. */
+  /**
+   * Author-supplied alt text for the logo; falls back to the site title server-side.
+   *
+   * Server-side only: this is consumed in default.server.tsx to set the logo's `alt` attribute and
+   * is intentionally NOT copied into the serialised Island `content` object. Client code must not
+   * read `content.logoAlt` - it would always be undefined.
+   */
   logoAlt?: string;
   loginEmailFieldLabel: string;
   loginPasswordFieldLabel: string;

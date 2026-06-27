@@ -2,10 +2,10 @@ package org.jahia.modules.upa.mfa.totp;
 
 import org.junit.Test;
 
-import static org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter.MAX_FAILURES;
-import static org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter.WINDOW_MILLIS;
-import static org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter.afterFailure;
-import static org.jahia.modules.upa.mfa.totp.TotpManagementRateLimiter.lockedNow;
+import static org.jahia.modules.upa.mfa.extensions.MfaManagementRateLimiterBase.MAX_FAILURES;
+import static org.jahia.modules.upa.mfa.extensions.MfaManagementRateLimiterBase.WINDOW_MILLIS;
+import static org.jahia.modules.upa.mfa.extensions.MfaManagementRateLimiterBase.afterFailure;
+import static org.jahia.modules.upa.mfa.extensions.MfaManagementRateLimiterBase.lockedNow;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;

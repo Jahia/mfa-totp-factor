@@ -94,7 +94,7 @@
   pointer-events: none;
   /* Do NOT use opacity here: 0.5 dropped the #00538b button to ~2.6:1 on white, failing AAA
      contrast (1.4.6) and focus-appearance. Use explicit solid colors that keep the label legible:
-     white on #3a4a57 = 7.97:1 (AAA), with a matching darker-gray border. */
+     white on #3a4a57 = 9.14:1 (AAA), with a matching darker-gray border. */
   background: #3a4a57;
   border-color: #3a4a57;
   color: #fff;

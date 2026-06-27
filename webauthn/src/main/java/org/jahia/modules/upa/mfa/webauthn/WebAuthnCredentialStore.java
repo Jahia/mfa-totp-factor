@@ -281,7 +281,10 @@ public class WebAuthnCredentialStore implements CredentialRepository {
             Node cred = findCredentialNode(userManagerService.lookupUser(userId, session), credentialIdB64);
             if (cred != null) {
                 long current = cred.hasProperty(PROP_SIGN_COUNT) ? cred.getProperty(PROP_SIGN_COUNT).getLong() : 0L;
-                cred.setProperty(PROP_SIGN_COUNT, nextSignCount(current, newSignCount));
+                long next = nextSignCount(current, newSignCount);
+                if (next != current) {
+                    cred.setProperty(PROP_SIGN_COUNT, next);
+                }
                 cred.setProperty(PROP_LAST_USED_AT, System.currentTimeMillis());
                 session.save();
             }

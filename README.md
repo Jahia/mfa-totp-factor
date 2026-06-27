@@ -256,7 +256,7 @@ Configuration (Karaf PID `org.jahia.modules.webauthn`):
 
 ### TOTP mutations
 
-All TOTP mutations are exposed under `Mutation.upa.mfa.factors.totp`:
+All TOTP mutations are exposed under `Mutation.upa.mfaFactors.totp`:
 
 | Mutation | Arguments | Returns |
 | --- | --- | --- |
@@ -266,61 +266,59 @@ All TOTP mutations are exposed under `Mutation.upa.mfa.factors.totp`:
 | `verify` | `code: String!` | `Result` |
 | `regenerateBackupCodes` | `code: String!` | `MfaTotpBackupCodesResult` (`backupCodes: [String]`) |
 | `disable` | `code: String!` | `Result` |
-| `setSiteSettings` | `siteKey: String!`, `enabled: Boolean!`, `enabledGroups: [String]`, `loginUrl: String`, `logoutUrl: String` | `TotpSiteSettingsResult` |
+| `setSiteSettings` | `siteKey: String!`, `enabled: Boolean!`, `enabledGroups: [String]`, `loginUrl: String`, `logoutUrl: String` | `MfaTotpSiteSettingsResult` |
 | `resetUserMfa` | `userId: String!`, `siteKey: String!` | `Boolean` |
 
 ### TOTP queries
 
-TOTP queries are exposed under `Query.upa.mfa.factors.totp`:
+TOTP queries are exposed as a flat root field `Query.mfaTotp`:
 
 | Query | Arguments | Returns |
 | --- | --- | --- |
-| `status` | &mdash; | `TotpStatusResult` (`enrolled: Boolean`, `backupCodesRemaining: Int`) |
-| `siteSettings` | `siteKey: String!` | `TotpSiteSettingsResult` |
-| `auditEvents` | `siteKey: String!`, `limit: Int` | `[TotpAuditEventResult]` |
-| `enrollmentReport` | `siteKey: String!`, `limit: Int` | `TotpEnrollmentReportResult` |
+| `status` | &mdash; | `MfaTotpStatusResult` (`enrolled: Boolean`, `backupCodesRemaining: Int`) |
+| `siteSettings` | `siteKey: String!` | `MfaTotpSiteSettingsResult` |
+| `auditEvents` | `siteKey: String!`, `limit: Int` | `[MfaTotpAuditEvent]` |
+| `enrollmentReport` | `siteKey: String!`, `limit: Int` | `MfaTotpEnrollmentReport` |
 
 ### WebAuthn mutations
 
-WebAuthn mutations are exposed under `Mutation.upa.mfa.factors.webauthn`:
+WebAuthn mutations are exposed under `Mutation.upa.mfaFactors.webauthn`:
 
 | Mutation | Arguments | Returns |
 | --- | --- | --- |
-| `prepare` | &mdash; | `WebAuthnPreparation` (assertion options JSON, skipped flag) |
+| `prepare` | &mdash; | `MfaWebauthnPreparation` (assertion options JSON, skipped flag) |
 | `verify` | `assertion: String!` | `Result` |
-| `startRegistration` | &mdash; | `WebAuthnRegistrationOptionsResult` (creation options JSON) |
-| `finishRegistration` | `response: String!`, `nickname: String` | `WebAuthnStatusResult` |
+| `startRegistration` | &mdash; | `MfaWebauthnRegistrationOptionsResult` (creation options JSON) |
+| `finishRegistration` | `response: String!`, `nickname: String` | `MfaWebauthnStatusResult` |
 | `renameCredential` | `credentialId: String!`, `nickname: String!` | `Boolean` |
 | `deleteCredential` | `credentialId: String!` | `Boolean` |
-| `setSiteSettings` | `siteKey: String!`, `enabled: Boolean!`, `enabledGroups: [String]` | `WebAuthnSiteSettingsResult` |
+| `setSiteSettings` | `siteKey: String!`, `enabled: Boolean!`, `enabledGroups: [String]` | `MfaWebauthnSiteSettingsResult` |
 | `resetUserWebauthn` | `userId: String!`, `siteKey: String!` | `Boolean` |
 
 ### WebAuthn queries
 
-WebAuthn queries are exposed under `Query.upa.mfa.factors.webauthn`:
+WebAuthn queries are exposed as a flat root field `Query.mfaWebauthn`:
 
 | Query | Arguments | Returns |
 | --- | --- | --- |
 | `supported` | &mdash; | `Boolean` |
-| `status` | &mdash; | `WebAuthnStatusResult` (credentials list) |
-| `siteSettings` | `siteKey: String!` | `WebAuthnSiteSettingsResult` |
-| `auditEvents` | `siteKey: String!`, `limit: Int` | `[WebAuthnAuditEventResult]` |
-| `enrollmentReport` | `siteKey: String!`, `limit: Int` | `WebAuthnEnrollmentReportResult` |
+| `status` | &mdash; | `MfaWebauthnStatusResult` (credentials list) |
+| `siteSettings` | `siteKey: String!` | `MfaWebauthnSiteSettingsResult` |
+| `auditEvents` | `siteKey: String!`, `limit: Int` | `[MfaWebauthnAuditEvent]` |
+| `enrollmentReport` | `siteKey: String!`, `limit: Int` | `MfaWebauthnEnrollmentReport` |
 
 Example &mdash; enroll an authenticated user:
 
 ```graphql
 mutation {
   upa {
-    mfa {
-      factors {
-        totp {
-          enroll {
-            secret
-            otpauthUri
-            issuer
-            accountName
-          }
+    mfaFactors {
+      totp {
+        enroll {
+          secret
+          otpauthUri
+          issuer
+          accountName
         }
       }
     }
@@ -332,9 +330,9 @@ Example &mdash; confirm enrollment with the first 6-digit code from the app:
 
 ```graphql
 mutation {
-  upa { mfa { factors { totp {
+  upa { mfaFactors { totp {
     confirmEnroll(code: "123456") { backupCodes }
-  } } } }
+  } } }
 }
 ```
 

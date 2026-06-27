@@ -10,6 +10,7 @@ import org.jahia.modules.upa.mfa.extensions.BackupCodes;
 import org.jahia.modules.upa.mfa.extensions.MfaEnforcementDecider;
 import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
 import org.jahia.modules.upa.mfa.extensions.MfaSiteProvider;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -60,6 +61,13 @@ public class TotpFactorProvider implements MfaFactorProvider {
     /** Every factor's per-user configuration view, for the cross-factor "at least one" decision. */
     private final List<MfaSiteProvider> siteProviders = new CopyOnWriteArrayList<>();
 
+    /**
+     * Shared, stateless orchestration reused across prepare() calls. Built once in {@link #activate()}
+     * after the DS references are bound, over the LIVE {@link #siteProviders} list, so it keeps seeing
+     * bind/unbind updates by reference.
+     */
+    private MfaEnforcementDecider enforcementDecider;
+
     @Reference
     public void setTotpService(TotpService totpService) { this.totpService = totpService; }
 
@@ -98,12 +106,18 @@ public class TotpFactorProvider implements MfaFactorProvider {
         // The per-site activation/scoping shell and the global pick-one decision table both live
         // in the shared MfaEnforcementDecider; TOTP only contributes its factor-specific callbacks.
         // (Crucially, when siteKey is absent we NEVER short-circuit verification - see notConfiguredError.)
-        return enforcementDecider().prepare(preparationContext, callbacks());
+        return enforcementDecider.prepare(preparationContext, callbacks());
     }
 
-    /** The shared pick-one / enforcement / grace orchestration, wired with this factor's collaborators. */
-    private MfaEnforcementDecider enforcementDecider() {
-        return new MfaEnforcementDecider(globalPolicy, mfaService, siteProviders);
+    /**
+     * Build the shared, stateless orchestration once, after all DS references are bound. DS runs the
+     * mandatory {@code @Reference} setters and only then activates the component and publishes the
+     * service, so the field is safely visible to prepare() without volatile. The live siteProviders
+     * list is passed by reference, so the single instance keeps seeing bind/unbind updates.
+     */
+    @Activate
+    public void activate() {
+        this.enforcementDecider = new MfaEnforcementDecider(globalPolicy, mfaService, siteProviders);
     }
 
     /**
@@ -158,26 +172,21 @@ public class TotpFactorProvider implements MfaFactorProvider {
             }
 
             @Override
-            public boolean isSiteEnabled(String siteKey) throws MfaException {
+            public boolean isSiteApplicable(String userId, String siteKey) throws MfaException {
+                // Load the per-site settings ONCE and check both enabled and group scope against
+                // that single snapshot.
+                TotpSiteSettingsStore.TotpSiteSettings settings;
                 try {
-                    return siteSettingsStore.load(siteKey).isEnabled();
+                    settings = siteSettingsStore.load(siteKey);
                 } catch (RepositoryException e) {
                     logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
                     throw new MfaException(ERROR_INTERNAL);
                 }
-            }
-
-            @Override
-            public boolean isInScope(String userId, String siteKey) throws MfaException {
-                List<String> enabledGroups;
-                try {
-                    enabledGroups = siteSettingsStore.load(siteKey).getEnabledGroups();
-                } catch (RepositoryException e) {
-                    logger.warn("Failed to load TOTP site settings for {}: {}", siteKey, e.getMessage());
-                    throw new MfaException(ERROR_INTERNAL);
+                if (!settings.isEnabled()) {
+                    return false;
                 }
                 try {
-                    return userStore.isMemberOfAnyGroup(userId, enabledGroups);
+                    return userStore.isMemberOfAnyGroup(userId, settings.getEnabledGroups());
                 } catch (RepositoryException e) {
                     logger.warn("Failed to check group membership for user {}: {}", userId, e.getMessage());
                     throw new MfaException(ERROR_INTERNAL);

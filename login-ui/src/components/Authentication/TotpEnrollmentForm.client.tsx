@@ -43,17 +43,18 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
   const backupHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    enrollTotp(apiRoot)
-      .then((result) => {
-        if (result.success) {
-          setSecret(result.secret);
-          setOtpauthUri(result.otpauthUri);
-          setPhase("setup");
-        } else {
-          props.onFatalError(result.error);
-        }
-      })
-      .catch(() => props.onFatalError({ code: "network_error" }));
+    // enrollTotp() returns its network failures as typed results (success: false with a
+    // network_error code), handled in the .then() branch below; it does not reject, so no
+    // .catch() is needed here.
+    enrollTotp(apiRoot).then((result) => {
+      if (result.success) {
+        setSecret(result.secret);
+        setOtpauthUri(result.otpauthUri);
+        setPhase("setup");
+      } else {
+        props.onFatalError(result.error);
+      }
+    });
     // Intentionally run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

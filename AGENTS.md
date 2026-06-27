@@ -130,8 +130,11 @@ from a snapshot.
 
 ## GraphQL wiring
 
-The mutation and query trees are grafted onto UPA's `FactorsMutation` and `FactorsQuery` via the
-`@GraphQLTypeExtension` annotations in `TotpFactorMutationExtension` / `TotpFactorQueryExtension`. Discovery happens
+The mutation tree is grafted onto UPA's `FactorsMutation` via the `@GraphQLTypeExtension`
+annotation in `TotpFactorMutationExtension` (the operations live under `upa { mfaFactors { totp { ... } } }`).
+The query tree, however, is NOT attached to UPA's query type: UPA's `impl.gql` package is not
+exported by the UPA API bundle, so `TotpFactorQueryExtension` attaches a flat field to the
+ROOT `DXGraphQLProvider.Query` instead (queries live at `Query.mfaTotp` / `Query.mfaWebauthn`). Discovery happens
 through `gql/ExtensionsAutoDiscovery`, registered as an OSGi `@Component` that exposes a
 `DXGraphQLExtensionsProvider`. If you add new GraphQL types, mutations, or queries, register them
 in the same file and grant them (mutation/query types and their result types) in `org.jahia.bundles.api.authorization-mfa-factors-totp.yml`.

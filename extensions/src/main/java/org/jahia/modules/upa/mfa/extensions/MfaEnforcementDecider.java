@@ -84,11 +84,15 @@ public class MfaEnforcementDecider {
         /** The {@code internal_error} error code for this factor (thrown when a sibling read fails closed). */
         String internalErrorCode();
 
-        /** Whether the factor is enabled on the given site (per-site activation). */
-        boolean isSiteEnabled(String siteKey) throws MfaException;
-
-        /** Whether the user is in scope of the site's policy groups (empty groups = everyone). */
-        boolean isInScope(String userId, String siteKey) throws MfaException;
+        /**
+         * Whether this factor applies to the user on the given site, decided from a SINGLE
+         * per-site settings load: the factor must be enabled on the site AND the user must be in
+         * scope of the site's policy groups (empty groups = everyone). Returns {@code true} only
+         * when BOTH hold; a disabled site OR an out-of-scope user yields {@code false}. Loading the
+         * snapshot once is a correctness invariant (the enabled check and the group/scope check
+         * must see the same site-settings snapshot).
+         */
+        boolean isSiteApplicable(String userId, String siteKey) throws MfaException;
 
         /**
          * Throw the factor's no-site, not-enforced, not-configured terminal error
@@ -112,12 +116,11 @@ public class MfaEnforcementDecider {
         String siteKey = preparationContext.getSessionContext().getSiteKey();
 
         if (StringUtils.isNotBlank(siteKey)) {
-            if (!callbacks.isSiteEnabled(siteKey)) {
-                logger.debug("{} skipped for user {} (site '{}' disabled)", factorType, userId, siteKey);
-                return callbacks.buildSkippedPreparation();
-            }
-            if (!callbacks.isInScope(userId, siteKey)) {
-                logger.debug("{} skipped for user {} (not in any policy group on site '{}')",
+            // Single site-settings snapshot: the enabled check and the group/scope check must read
+            // the SAME snapshot, so they are collapsed into one applicability decision (skip when
+            // the site is disabled OR the user is out of scope).
+            if (!callbacks.isSiteApplicable(userId, siteKey)) {
+                logger.debug("{} skipped for user {} (site '{}' not applicable: disabled or not in scope)",
                         factorType, userId, siteKey);
                 return callbacks.buildSkippedPreparation();
             }

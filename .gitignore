@@ -28,6 +28,9 @@ login-ui/node_modules/
 login-ui/node/
 login-ui/dist/
 login-ui/*.tgz
+# Yarn PnP / Berry local state (not committed - the build runs its own install)
+login-ui/.yarn/
+login-ui/.pnp.*
 
 # OS
 .DS_Store

@@ -20,18 +20,21 @@
 
     <properties>
         <!-- TOTP and WebAuthn are intentionally parallel implementations of the same MfaFactorProvider
-             SPI; their GraphQL layer (gql/**: @GraphQLName-typed result DTOs, @GraphQLTypeExtension
-             graft classes, the DXGraphQLExtensionsProvider auto-discovery) and the factor providers'
-             OSGi @Reference DI scaffolding mirror each other by API/framework necessity - they cannot
-             be collapsed into a shared base without changing the published GraphQL schema (the
-             byte-identical API contract the login UI and Cypress depend on) or breaking Declarative
-             Services component activation. All shared LOGIC has been extracted into the extensions
-             bundle (MfaEnforcementDecider, MfaPreAuthGuard, MfaGraphqlAuth, MfaAdminAccess,
-             MfaManagementRateLimiterBase, MfaAuditLogBase, MfaSiteSettingsStoreBase), which stays
-             fully under copy-paste detection. Only the per-factor structural boilerplate is excluded
-             from CPD; every other rule (bugs, vulnerabilities, security hotspots, code smells) still
-             applies to these files. -->
-        <sonar.cpd.exclusions>**/gql/**,**/*FactorProvider.java</sonar.cpd.exclusions>
+             SPI; their GraphQL layer (totp|webauthn gql/**: @GraphQLName-typed result DTOs,
+             @GraphQLTypeExtension graft classes, the DXGraphQLExtensionsProvider auto-discovery) and
+             the factor providers' OSGi @Reference DI scaffolding mirror each other by API/framework
+             necessity - they cannot be collapsed into a shared base without changing the published
+             GraphQL schema (the byte-identical API contract the login UI and Cypress depend on) or
+             breaking Declarative Services component activation. All shared LOGIC has been extracted
+             into the extensions bundle (MfaEnforcementDecider, MfaPreAuthGuard, MfaGraphqlAuth,
+             MfaAdminAccess, MfaManagementRateLimiterBase, MfaAuditLogBase, MfaSiteSettingsStoreBase),
+             which stays fully under copy-paste detection. The exclusion is scoped to the two factor
+             modules so the extensions bundle's own gql package (ExtensionsGraphQLDiscovery,
+             MfaExtensionsConfigSupport, MfaExtensionsConfiguration, MfaExtensionsMutationExtension,
+             MfaSessionQueryExtension) - single-instance code, not a copy-paste pair - stays under CPD.
+             Only the per-factor structural boilerplate is excluded from CPD; every other rule (bugs,
+             vulnerabilities, security hotspots, code smells) still applies to these files. -->
+        <sonar.cpd.exclusions>totp/**/gql/**,webauthn/**/gql/**,**/*FactorProvider.java</sonar.cpd.exclusions>
     </properties>
 
     <modules>
