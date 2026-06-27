@@ -169,6 +169,16 @@ public class MfaLoginLogoutProviderTest {
     }
 
     @Test
+    public void moduleResourcesAreNeverARedirectTarget() {
+        // config.logoutUrl/loginUrl are baked into the per-request jahiaUserEntries.js config
+        // asset; at generation time the request IS that asset. Capturing it as the redirect
+        // target stranded the user on the .js file after logout (the reported bug).
+        assertNull(redirectTarget(
+                request("/modules/jahia-user-entries/configs/jahiaUserEntries.js", "v=1782568469067", null)));
+        assertNull(redirectTarget(request("/modules/graphql", null, null)));
+    }
+
+    @Test
     public void errorDispatchAttributeIsThePageThe401WasRaisedFor() {
         // Jahia's 401 handling FORWARDS to /error before consulting the providers: the page the
         // user asked for is in the standard ERROR dispatch attribute, not the request URI.

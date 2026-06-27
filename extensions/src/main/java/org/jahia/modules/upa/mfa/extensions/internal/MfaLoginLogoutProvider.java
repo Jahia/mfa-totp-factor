@@ -151,8 +151,10 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
      * page. Otherwise the target is the original request URI: Jahia's 401 handling FORWARDS to
      * the error servlet before consulting the providers, so the URI the user asked for lives in
      * the standard {@code ERROR} / {@code FORWARD} dispatch attributes, with the request's own
-     * URI as the no-dispatch fallback. The auth endpoints (and the error servlet) are never a
-     * useful target. Everything is funneled through {@link MfaUrls#isSafeSiteRelativeUrl} — a
+     * URI as the no-dispatch fallback. The auth endpoints, the error servlet and module
+     * resources (e.g. the {@code jahiaUserEntries.js} config asset that itself carries
+     * {@code config.logoutUrl}) are never a useful target — see {@link #isNonRedirectableEndpoint}.
+     * Everything is funneled through {@link MfaUrls#isSafeSiteRelativeUrl} — a
      * hostile {@code redirect} parameter must not turn the login flow into an open redirect.
      */
     static String redirectTarget(HttpServletRequest request) {
@@ -177,7 +179,7 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
             uri = request.getRequestURI();
             query = request.getQueryString();
         }
-        if (uri == null || isAuthOrErrorEndpoint(uri, request.getContextPath())) {
+        if (uri == null || isNonRedirectableEndpoint(uri, request.getContextPath())) {
             return null;
         }
         String target = StringUtils.isBlank(query) ? uri : uri + "?" + query;
@@ -189,11 +191,16 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
         return value instanceof String ? StringUtils.trimToNull((String) value) : null;
     }
 
-    private static boolean isAuthOrErrorEndpoint(String uri, String contextPath) {
+    private static boolean isNonRedirectableEndpoint(String uri, String contextPath) {
         String path = StringUtils.isNotEmpty(contextPath) && uri.startsWith(contextPath)
                 ? uri.substring(contextPath.length())
                 : uri;
-        return path.startsWith("/cms/login") || path.startsWith("/cms/logout") || path.equals("/error");
+        // Auth endpoints loop back on themselves; the error servlet and any module resource
+        // (static assets, GraphQL, the provisioning API, and notably the per-request
+        // jahiaUserEntries.js config that carries config.logoutUrl/loginUrl) are never a
+        // renderable page the user could have been "on", so they must not become the target.
+        return path.startsWith("/cms/login") || path.startsWith("/cms/logout")
+                || path.equals("/error") || path.startsWith("/modules/");
     }
 
     /**
