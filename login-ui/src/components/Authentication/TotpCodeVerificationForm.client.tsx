@@ -10,6 +10,7 @@ import type { MfaError } from "../../services/common";
 import { submitOnEnter } from "./formKeyboard";
 import { sanitizeHtml } from "../../services/sanitizeHtml";
 import ChangeMethodButton from "./ChangeMethodButton.client";
+import OtpInput from "./OtpInput.client";
 
 interface TotpCodeVerificationFormProps {
   content: Props;
@@ -71,10 +72,10 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Focus the input once the form is interactive and whenever the user toggles between TOTP and
-  // backup mode (item 4: replaces the setTimeout(..., 0) focus hack with a commit-time effect).
+  // Focus the free-text backup-code input when the form is interactive in backup mode. The TOTP
+  // segmented input focuses its first box itself (autoFocus) when it mounts.
   useEffect(() => {
-    if (!loading) {
+    if (!loading && useBackupCode) {
       inputRef.current?.focus();
     }
   }, [loading, useBackupCode]);
@@ -106,10 +107,14 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
     ? code.length >= BACKUP_CODE_MIN_LENGTH
     : code.length === TOTP_CODE_LENGTH;
 
-  const submit = () => {
-    if (!isCodeValid || submitting) return;
+  const submit = (codeOverride?: string) => {
+    const value = codeOverride ?? code;
+    const valid = useBackupCode
+      ? value.length >= BACKUP_CODE_MIN_LENGTH
+      : value.length === TOTP_CODE_LENGTH;
+    if (!valid || submitting) return;
     setSubmitting(true);
-    verifyTotpFactor(apiRoot, code)
+    verifyTotpFactor(apiRoot, value)
       .then((result) => {
         if (result.success) {
           setError("");
@@ -148,28 +153,43 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
       )}
 
       <form onSubmit={handleSubmit}>
-        <div style={{ textAlign: "center" }}>
-          <input
-            ref={inputRef}
-            id="verificationCode"
-            name="verificationCode"
-            type="text"
-            inputMode={useBackupCode ? "text" : "numeric"}
-            autoComplete="one-time-code"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder={useBackupCode ? "ABCD-1234" : "123456"}
+        {useBackupCode ? (
+          <div style={{ textAlign: "center" }}>
+            <input
+              ref={inputRef}
+              id="verificationCode"
+              name="verificationCode"
+              type="text"
+              inputMode="text"
+              autoComplete="one-time-code"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="ABCD-1234"
+              value={code}
+              onChange={handleCodeInputChange}
+              onKeyDown={submitOnEnter(submit)}
+              aria-label={t("factor.totp.backupCodeHeading")}
+              aria-describedby="verificationCode-error"
+              data-testid="verification-backup-code"
+              className={classes.backupCodeInput}
+              required
+            />
+          </div>
+        ) : (
+          <OtpInput
+            length={TOTP_CODE_LENGTH}
             value={code}
-            onChange={handleCodeInputChange}
-            onKeyDown={submitOnEnter(submit)}
-            aria-label={t("factor.totp.codeInputLabel")}
-            aria-describedby="verificationCode-error"
-            data-testid={useBackupCode ? "verification-backup-code" : "verification-code"}
-            className={useBackupCode ? classes.backupCodeInput : classes.otpInput}
-            required
+            onChange={setCode}
+            onComplete={(v) => submit(v)}
+            disabled={submitting}
+            autoFocus
+            groupLabel={t("factor.totp.codeInputLabel")}
+            digitLabel={(index, count) => t("factor.otp.digitLabel", { index, count })}
+            describedById="verificationCode-error"
+            testId="verification-code"
           />
-        </div>
+        )}
         <ErrorMessage message={error} id="verificationCode-error" />
         <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
           <button

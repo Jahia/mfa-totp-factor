@@ -52,6 +52,30 @@
   min-height: 44px;
 }
 
+/* Segmented one-time-code input: one box per digit. */
+.otpGroup {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.otpDigit {
+  font-family:
+    ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 1.5rem;
+  text-align: center;
+  padding: 0.25rem;
+  border-radius: 4px;
+  /* 4.54:1 against the white card - non-text UI boundary (WCAG 1.4.11 needs 3:1). */
+  border: 1px solid #767676;
+  box-sizing: border-box;
+  /* Pointer target >= 44 CSS px square (WCAG 2.5.5 AAA). */
+  min-width: 44px;
+  min-height: 44px;
+  width: 3ch;
+}
+
 .backupCodeInput {
   font-family:
     ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
@@ -105,6 +129,7 @@
 .toggleMode:focus-visible,
 .formField input:focus-visible,
 .otpInput:focus-visible,
+.otpDigit:focus-visible,
 .backupCodeInput:focus-visible {
   outline: 2px solid #00538b;
   outline-offset: 2px;

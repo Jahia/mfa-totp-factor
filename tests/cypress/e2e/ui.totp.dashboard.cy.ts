@@ -45,7 +45,9 @@ describe('TOTP dashboard UI', () => {
                 const secret = rawSecret.replace(/\s+/g, '');
                 expect(secret, 'displayed secret').to.have.length.greaterThan(10);
 
-                // 2. Compute the current code and submit.
+                // 2. Compute the current code and confirm (dashboard EnrollDialog uses a
+                // single Moonstone input + an explicit confirm button, not the segmented
+                // login-ui field).
                 cy.get('[data-testid="enroll-code-input"]').type(totpCode(secret));
                 cy.get('[data-testid="enroll-confirm-btn"]').click();
 

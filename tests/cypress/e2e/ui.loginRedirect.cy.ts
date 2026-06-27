@@ -16,6 +16,7 @@ import {
     createSiteWithTotpLoginPage,
     createUserForMFA,
     deleteTotpLoginSite,
+    fillOtp,
     getTotpLoginPageURL,
     installTotpMFAConfig,
     setGlobalEnforcement,
@@ -94,8 +95,7 @@ describe('Login redirect round trip (custom login URL)', () => {
             .invoke('text')
             .then(rawSecret => {
                 const secret = rawSecret.replace(/\s+/g, '');
-                cy.get('[data-testid="enroll-code-input"]').type(totpCode(secret));
-                cy.get('[data-testid="enroll-confirm-btn"]').click();
+                fillOtp('enroll-code-input', totpCode(secret));
             });
         cy.get('[data-testid="enroll-backup-ack"]', {timeout: 30000}).click();
 
