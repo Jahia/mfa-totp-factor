@@ -54,7 +54,7 @@
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>graphql-dxm-provider</artifactId>
-            <version>3.4.0</version>
+            <version>3.6.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
