@@ -166,8 +166,9 @@
 }
 
 .helpText {
-  font-size: 0.9rem;
-  /* 7.46:1 on the white card — AAA. */
+  /* 1rem (standard body size): 0.9rem read as too small for these instructional sentences. */
+  font-size: 1rem;
+  /* 7.46:1 on the white card — AAA (contrast is size-independent). */
   color: #555;
   text-align: center;
   margin: 0;
