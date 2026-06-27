@@ -175,6 +175,7 @@ export default function TotpCodeVerificationForm(props: Readonly<TotpCodeVerific
           <button
             type="submit"
             disabled={!isCodeValid || submitting}
+            aria-busy={submitting}
             data-testid="verification-submit"
             className={classes.submitButton}
           >

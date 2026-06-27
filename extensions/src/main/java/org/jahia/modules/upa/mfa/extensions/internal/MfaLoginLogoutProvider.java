@@ -147,31 +147,12 @@ public class MfaLoginLogoutProvider implements LoginUrlProvider, LogoutUrlProvid
         if (trimmed == null) {
             return null;
         }
-        if (isSafeGlobalUrl(trimmed)) {
+        if (MfaUrls.isSafeGlobalRedirectUrl(trimmed)) {
             return trimmed;
         }
         logger.warn("Ignoring unsafe global MFA login/logout URL (not a safe server-relative path "
                 + "nor an http(s) absolute URL)");
         return null;
-    }
-
-    /**
-     * A global URL is safe when it is either a safe server-relative path (per-site rules) or a
-     * well-formed absolute {@code http(s)} URL. Dangerous schemes ({@code javascript:},
-     * {@code data:}, {@code vbscript:}) are always rejected.
-     */
-    static boolean isSafeGlobalUrl(String url) {
-        if (StringUtils.isBlank(url)) {
-            return false;
-        }
-        String lower = url.trim().toLowerCase(java.util.Locale.ROOT);
-        if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
-            return false;
-        }
-        if (MfaUrls.isSafeSiteRelativeUrl(url)) {
-            return true;
-        }
-        return lower.startsWith("http://") || lower.startsWith("https://");
     }
 
     /**

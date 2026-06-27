@@ -223,6 +223,89 @@ public class MfaSiteConfigServiceTest {
         }
     }
 
+    @Test
+    public void concurrentReadModifyWriteOnOverlappingStateLosesNoUpdate() throws Exception {
+        // Both threads read-modify-write the SAME site, touching overlapping state: thread A flips
+        // totp.enabled, thread B sets loginUrl. Each save() is a read-modify-write on the shared
+        // snapshot, so WITHOUT the writeLock one thread's read-then-write could clobber the other's
+        // committed change (a classic lost update). The lock serializes them, so the final config
+        // must carry BOTH totp.enabled=true AND loginUrl=/login.html.
+        for (int i = 0; i < 50; i++) {
+            final MfaSiteConfigService svc = new MfaSiteConfigService();
+            final CyclicBarrier barrier = new CyclicBarrier(2);
+            final AtomicReferenceThrowable failure = new AtomicReferenceThrowable();
+
+            Runnable enableTotp = () -> awaitThen(barrier, failure, () ->
+                    svc.save("digitall", c -> c.withFactor(FACTOR_TOTP, true, null)));
+            Runnable setLoginUrl = () -> awaitThen(barrier, failure, () ->
+                    svc.save("digitall", c -> c.withUrls("/login.html", null)));
+
+            Thread t1 = new Thread(enableTotp);
+            Thread t2 = new Thread(setLoginUrl);
+            t1.start();
+            t2.start();
+            t1.join();
+            t2.join();
+            if (failure.error != null) {
+                fail("save() threw under concurrency: " + failure.error);
+            }
+
+            MfaSiteConfig config = svc.getConfig("digitall");
+            assertTrue("iteration " + i + ": TOTP enabled (no lost update)", config.isEnabled(FACTOR_TOTP));
+            assertEquals("iteration " + i + ": loginUrl preserved (no lost update)",
+                    "/login.html", config.getLoginUrl());
+        }
+    }
+
+    @Test
+    public void updatedSerializesWithSaveUnderTheWriteLock() throws Exception {
+        // save()'s read-modify-write and updated()'s replace both take the writeLock, so a
+        // concurrent updated() can never interleave INSIDE save()'s critical section and produce a
+        // torn snapshot. We make save()'s merge lambda park on a barrier (it is invoked while save()
+        // already holds the lock), release a concurrent updated() for the SAME site, and assert the
+        // final map is one fully-consistent whole snapshot - one writer's commit, never a mix.
+        final MfaSiteConfigService svc = new MfaSiteConfigService();
+        final CyclicBarrier insideLock = new CyclicBarrier(2);
+        final AtomicReferenceThrowable failure = new AtomicReferenceThrowable();
+
+        // Thread A: save() that enables totp; its merge lambda parks on the barrier WHILE holding the
+        // writeLock, guaranteeing updated() (below) cannot enter its own synchronized block yet.
+        Thread saver = new Thread(() -> {
+            try {
+                svc.save("digitall", c -> {
+                    awaitQuietly(insideLock);
+                    return c.withFactor(FACTOR_TOTP, true, null);
+                });
+            } catch (Exception e) {
+                failure.set(e);
+            }
+        });
+
+        // Thread B: an updated() carrying a DIFFERENT, totp-less snapshot (loginUrl only). If it
+        // could interleave inside save()'s critical section, the result would be torn.
+        Thread updater = new Thread(() -> {
+            awaitQuietly(insideLock); // let save() get into its locked merge first
+            svc.updated("pid-x", props("siteKey", "digitall", "loginUrl", "/login.html"));
+        });
+
+        saver.start();
+        updater.start();
+        saver.join();
+        updater.join();
+        if (failure.error != null) {
+            fail("save()/updated() threw under concurrency: " + failure.error);
+        }
+
+        // Whichever writer committed last wins as a WHOLE snapshot: either the save result (totp
+        // enabled with no URL) or the updated result (totp disabled with the login URL set), never
+        // a torn half-merge combining both and never an empty config. Both ran under the same lock.
+        MfaSiteConfig config = svc.getConfig("digitall");
+        boolean saveWonWhole = config.isEnabled(FACTOR_TOTP) && config.getLoginUrl() == null;
+        boolean updateWonWhole = !config.isEnabled(FACTOR_TOTP) && "/login.html".equals(config.getLoginUrl());
+        assertTrue("the map must reflect exactly one writer's whole snapshot, not a torn merge",
+                saveWonWhole || updateWonWhole);
+    }
+
     // --- karaf.base fallback when karaf.etc is unset -----------------------------------------
 
     @Test
@@ -327,6 +410,15 @@ public class MfaSiteConfigServiceTest {
             action.run();
         } catch (Exception e) {
             failure.set(e);
+        }
+    }
+
+    /** Await a barrier, turning the checked exceptions into an unchecked one (test-only). */
+    private static void awaitQuietly(CyclicBarrier barrier) {
+        try {
+            barrier.await();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
         }
     }
 

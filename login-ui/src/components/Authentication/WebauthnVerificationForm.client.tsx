@@ -31,12 +31,16 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
   const [error, setError] = useState("");
   const requestOptionsRef = useRef<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const unsupportedAlertRef = useRef<HTMLParagraphElement>(null);
   const supported = isWebauthnSupported();
 
-  // Move focus to the primary action when the step becomes interactive (focus order on transition).
+  // Move focus to the primary action when the step becomes interactive, or to the unsupported
+  // alert when WebAuthn is unavailable (mirrors WebauthnRegistrationForm; WCAG 2.4.3).
   useEffect(() => {
     if (!loading && supported) {
       buttonRef.current?.focus();
+    } else if (!loading && !supported) {
+      unsupportedAlertRef.current?.focus();
     }
   }, [loading, supported]);
 
@@ -127,13 +131,14 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
           <p className={classes.helpText}>
             <Trans i18nKey="factor.webauthn.help" />
           </p>
-          <ErrorMessage message={error} />
+          <ErrorMessage message={error} id="webauthn-verify-error" />
           <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
             <button
               ref={buttonRef}
               type="button"
               disabled={submitting || !requestOptionsRef.current}
               aria-busy={submitting}
+              aria-describedby="webauthn-verify-error"
               data-testid="webauthn-authenticate"
               className={classes.submitButton}
               onClick={authenticate}
@@ -145,7 +150,7 @@ export default function WebauthnVerificationForm(props: Readonly<WebauthnVerific
           </div>
         </>
       ) : (
-        <p className={classes.helpText} role="alert" data-testid="webauthn-unsupported">
+        <p ref={unsupportedAlertRef} tabIndex={-1} className={classes.helpText} role="alert" data-testid="webauthn-unsupported">
           <Trans i18nKey="factor.webauthn.unsupported" />
         </p>
       )}

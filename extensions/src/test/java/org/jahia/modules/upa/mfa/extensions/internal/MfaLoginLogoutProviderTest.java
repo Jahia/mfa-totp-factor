@@ -10,9 +10,9 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
+import static org.jahia.modules.upa.mfa.extensions.MfaUrls.isSafeGlobalRedirectUrl;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginLogoutProvider.appendRedirect;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginLogoutProvider.chooseUrl;
-import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginLogoutProvider.isSafeGlobalUrl;
 import static org.jahia.modules.upa.mfa.extensions.internal.MfaLoginLogoutProvider.redirectTarget;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -127,14 +127,15 @@ public class MfaLoginLogoutProviderTest {
 
     @Test
     public void isSafeGlobalUrlClassifies() {
-        assertTrue(isSafeGlobalUrl("/sites/a/login.html"));
-        assertTrue(isSafeGlobalUrl("https://sso.example.com/login"));
-        assertTrue(isSafeGlobalUrl("http://sso.example.com/login"));
-        assertFalse(isSafeGlobalUrl("javascript:alert(1)"));
-        assertFalse(isSafeGlobalUrl("DATA:text/html,x"));
-        assertFalse(isSafeGlobalUrl("//evil.example"));
-        assertFalse(isSafeGlobalUrl(null));
-        assertFalse(isSafeGlobalUrl("   "));
+        assertTrue(isSafeGlobalRedirectUrl("/sites/a/login.html"));
+        assertTrue(isSafeGlobalRedirectUrl("https://sso.example.com/login"));
+        assertTrue(isSafeGlobalRedirectUrl("http://sso.example.com/login"));
+        assertFalse(isSafeGlobalRedirectUrl("javascript:alert(1)"));
+        assertFalse(isSafeGlobalRedirectUrl("DATA:text/html,x"));
+        assertFalse(isSafeGlobalRedirectUrl("//evil.example"));
+        assertFalse("an http(s) URL with no host is not well-formed", isSafeGlobalRedirectUrl("http://"));
+        assertFalse(isSafeGlobalRedirectUrl(null));
+        assertFalse(isSafeGlobalRedirectUrl("   "));
     }
 
     // --- redirect propagation ---------------------------------------------------------------

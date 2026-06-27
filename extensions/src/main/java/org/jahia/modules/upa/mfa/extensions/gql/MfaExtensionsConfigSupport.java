@@ -5,8 +5,6 @@ import org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy;
 import org.jahia.modules.upa.mfa.extensions.MfaUrls;
 import org.jahia.modules.upa.mfa.extensions.internal.MfaLoginGateFilter;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Dictionary;
@@ -118,35 +116,13 @@ final class MfaExtensionsConfigSupport {
         if (trimmed.isEmpty()) {
             return "";
         }
-        if (hasDangerousScheme(trimmed)) {
-            throw new IllegalArgumentException(ERROR_INVALID_URL);
-        }
-        if (MfaUrls.isSafeSiteRelativeUrl(trimmed)) {
-            return trimmed;
-        }
-        if (isWellFormedHttpUrl(trimmed)) {
+        // Same shared chokepoint the read path (MfaLoginLogoutProvider) uses, so the write and read
+        // rules can never drift: a safe server-relative path OR a well-formed http(s) absolute URL
+        // with a host, rejecting javascript:/data:/vbscript: and protocol-relative values.
+        if (MfaUrls.isSafeGlobalRedirectUrl(trimmed)) {
             return trimmed;
         }
         throw new IllegalArgumentException(ERROR_INVALID_URL);
-    }
-
-    /** Reject the classic XSS/redirect-bait schemes regardless of case or leading whitespace. */
-    private static boolean hasDangerousScheme(String value) {
-        String lower = value.trim().toLowerCase(Locale.ROOT);
-        return lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:");
-    }
-
-    /** A well-formed absolute {@code http(s)} URL with a host (the documented external-SSO case). */
-    private static boolean isWellFormedHttpUrl(String value) {
-        try {
-            URI uri = new URI(value);
-            String scheme = uri.getScheme();
-            return scheme != null
-                    && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
-                    && StringUtils.isNotBlank(uri.getHost());
-        } catch (URISyntaxException e) {
-            return false;
-        }
     }
 
     /** Every submitted factor must be a registered factor type (a typo = unsatisfiable policy). */

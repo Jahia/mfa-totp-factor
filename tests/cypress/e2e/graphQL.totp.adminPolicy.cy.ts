@@ -110,13 +110,15 @@ describe('TOTP per-site policy & admin (GraphQL)', () => {
 
     it('omitting URL args (null) keeps existing URLs unchanged', () => {
         const loginUrl = `/sites/${SITE_KEY}/login.html`;
-        // Establish a known loginUrl.
-        setSiteSettings({siteKey: SITE_KEY, enabled: true, loginUrl, logoutUrl: ''});
-        // Toggle enabled with URL args omitted (null) - loginUrl must survive.
+        const logoutUrl = `/sites/${SITE_KEY}/logout.html`;
+        // Establish known values for both URLs.
+        setSiteSettings({siteKey: SITE_KEY, enabled: true, loginUrl, logoutUrl});
+        // Toggle enabled with URL args omitted (null) - both URLs must survive independently.
         setSiteSettings({siteKey: SITE_KEY, enabled: false});
         getSiteSettings(SITE_KEY).then(res => {
             const s = res?.data?.mfaTotp?.siteSettings;
             expect(s.loginUrl, 'loginUrl must survive when URL arg is omitted').to.eq(loginUrl);
+            expect(s.logoutUrl, 'logoutUrl must survive when URL arg is omitted').to.eq(logoutUrl);
         });
         // Restore to a clean state for subsequent tests.
         setSiteSettings({siteKey: SITE_KEY, enabled: true, loginUrl: '', logoutUrl: ''});

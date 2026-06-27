@@ -140,9 +140,9 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
 
     /**
      * The per-site config service; consulted ONLY for its {@link MfaSiteConfigService#isReady()}
-     * readiness flag so the no-resolvable-site path can fail CLOSED during the startup window
-     * before FileInstall/the eager scan has populated the map. May be {@code null} in a unit test
-     * that does not exercise the readiness path (treated as ready).
+     * readiness flag so BOTH gating paths (resolved-site and no-site) can fail CLOSED during the
+     * startup window before FileInstall/the eager scan has populated the map. May be {@code null}
+     * in a unit test that does not exercise the readiness path (treated as ready).
      */
     private MfaSiteConfigService siteConfigService;
 
@@ -325,19 +325,21 @@ public class MfaLoginGateFilter extends AbstractServletFilter {
         if (!globalPolicy.isEnforcementActive()) {
             return false;
         }
+        // During the startup window the per-site config map may not be populated yet (FileInstall is
+        // async) and the eager scan may not have run, so BOTH the resolved-site and the no-site
+        // branches below could report "not enforcing" off an empty map and let /cms/login through
+        // password-only — a fail-OPEN bypass. Enforcement is active here, so fail CLOSED until the
+        // config service is ready, regardless of whether the request carries a site context.
+        if (siteConfigService != null && !siteConfigService.isReady()) {
+            logger.debug("MFA /cms/login gate: per-site config not ready yet (startup), failing CLOSED "
+                    + "while enforcement is active");
+            return true;
+        }
         String siteKey = resolveSiteKey(request);
         if (siteKey != null) {
             return anyEnforcesForSite(siteKey);
         }
-        // No resolvable site: the "any site enforcing?" decision. During the startup window the
-        // per-site config map may not be populated yet (FileInstall is async), so a naive scan
-        // could report "no site enforcing" and let /cms/login through password-only — a fail-OPEN
-        // bypass. Enforcement is active here, so fail CLOSED until the config service is ready.
-        if (siteConfigService != null && !siteConfigService.isReady()) {
-            logger.warn("MFA /cms/login gate: per-site config not ready yet (startup), failing CLOSED "
-                    + "for the no-site path while enforcement is active");
-            return true;
-        }
+        // No resolvable site: the "any site enforcing?" decision over every site.
         return isAnySiteEnforcingCached();
     }
 

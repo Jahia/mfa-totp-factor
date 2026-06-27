@@ -41,30 +41,33 @@ public class TotpSiteSettingsStore {
     /**
      * Snapshot of the TOTP settings for a site.
      * <p>
-     * The {@code urlsProvided} flag distinguishes "the caller supplied URL values to write" from
-     * "the caller did not touch the URLs". The login/logout URLs are factor-agnostic and shared in
-     * the same per-site {@code .cfg}: when {@code urlsProvided} is {@code false} the store performs a
-     * true PARTIAL update (writes only this factor's slice and leaves any stored URLs untouched);
-     * when {@code true} the URLs are written through ({@code null} clears, a path sets).
+     * The login/logout URLs are factor-agnostic and shared in the same per-site {@code .cfg}, and
+     * each is tracked INDEPENDENTLY by its own "provided" flag so an omitted field is never erased
+     * by a write that only touches the other one. Per field: when its provided flag is {@code false}
+     * the store keeps the previously stored value (true PARTIAL update); when {@code true} the value
+     * is written through ({@code null}/blank clears, a path sets).
      */
     public static final class TotpSiteSettings {
         public static final TotpSiteSettings DISABLED =
-                new TotpSiteSettings(false, Collections.emptyList(), null, null, false);
+                new TotpSiteSettings(false, Collections.emptyList(), null, null, false, false);
 
         private final boolean enabled;
         private final List<String> enabledGroups;
         private final String loginUrl;
         private final String logoutUrl;
-        private final boolean urlsProvided;
+        private final boolean loginUrlProvided;
+        private final boolean logoutUrlProvided;
 
         public TotpSiteSettings(boolean enabled, List<String> enabledGroups,
-                                String loginUrl, String logoutUrl, boolean urlsProvided) {
+                                String loginUrl, String logoutUrl,
+                                boolean loginUrlProvided, boolean logoutUrlProvided) {
             this.enabled = enabled;
             this.enabledGroups = enabledGroups == null
                     ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(enabledGroups));
             this.loginUrl = loginUrl;
             this.logoutUrl = logoutUrl;
-            this.urlsProvided = urlsProvided;
+            this.loginUrlProvided = loginUrlProvided;
+            this.logoutUrlProvided = logoutUrlProvided;
         }
 
         public boolean isEnabled()  { return enabled; }
@@ -77,11 +80,18 @@ public class TotpSiteSettingsStore {
         public String getLogoutUrl() { return logoutUrl; }
 
         /**
-         * Whether the URLs should be written. When {@code false} the store keeps any previously
-         * stored login/logout URLs (partial update); when {@code true} it writes the URL values
-         * (a {@code null} clears them, a path sets them).
+         * Whether the login URL should be written. When {@code false} the store keeps the previously
+         * stored login URL (partial update); when {@code true} it writes the value (a {@code null}
+         * clears it, a path sets it).
          */
-        public boolean isUrlsProvided() { return urlsProvided; }
+        public boolean isLoginUrlProvided() { return loginUrlProvided; }
+
+        /**
+         * Whether the logout URL should be written. When {@code false} the store keeps the previously
+         * stored logout URL (partial update); when {@code true} it writes the value (a {@code null}
+         * clears it, a path sets it).
+         */
+        public boolean isLogoutUrlProvided() { return logoutUrlProvided; }
     }
 
     /**
@@ -92,7 +102,7 @@ public class TotpSiteSettingsStore {
         MfaSiteConfig config = siteConfigService.getConfig(siteKey);
         return new TotpSiteSettings(config.isEnabled(TotpFactorProvider.FACTOR_TYPE),
                 config.enabledGroups(TotpFactorProvider.FACTOR_TYPE),
-                config.getLoginUrl(), config.getLogoutUrl(), true);
+                config.getLoginUrl(), config.getLogoutUrl(), true, true);
     }
 
     /** Whether at least one site currently has TOTP enabled. */
@@ -106,31 +116,35 @@ public class TotpSiteSettingsStore {
      * the values: the URLs must be safe server-relative paths
      * ({@link MfaUrls#validateSiteRelativeUrl}).
      * <p>
-     * The login/logout URLs are factor-agnostic and shared in the same per-site {@code .cfg}. URL
-     * writing is therefore a true PARTIAL update driven by {@link TotpSiteSettings#isUrlsProvided()}:
-     * when the flag is {@code false} the stored URLs are left untouched (only this factor's slice is
-     * written); when {@code true} the URLs are written through, where a blank value (validated to
-     * {@code null}) CLEARS them and a path SETS them.
+     * The login/logout URLs are factor-agnostic and shared in the same per-site {@code .cfg}. Each
+     * URL is a true PARTIAL update driven INDEPENDENTLY by its own flag
+     * ({@link TotpSiteSettings#isLoginUrlProvided()} / {@link TotpSiteSettings#isLogoutUrlProvided()}):
+     * when a field's flag is {@code false} its previously stored value is kept (only the sibling URL
+     * and this factor's slice are written); when {@code true} that field is written through, where a
+     * blank value (validated to {@code null}) CLEARS it and a path SETS it. An omitted field can
+     * therefore never erase its sibling.
      *
      * @throws IllegalArgumentException when a URL is not a safe server-relative path
      * @throws IOException              when the {@code .cfg} cannot be written
      */
     public void save(String siteKey, TotpSiteSettings settings) throws IOException {
-        if (!settings.isUrlsProvided()) {
-            // Partial update: write only this factor's slice, keep any previously stored URLs.
-            siteConfigService.save(siteKey, current -> current
-                    .withFactor(TotpFactorProvider.FACTOR_TYPE, settings.isEnabled(), settings.getEnabledGroups()));
-            logger.info("TOTP site settings saved for {}: enabled={}, groups={} (URLs untouched)",
-                    siteKey, settings.isEnabled(), settings.getEnabledGroups());
-            return;
-        }
-        // validateSiteRelativeUrl("") returns null, which is the correct "clear" value here.
-        String cleanLoginUrl = MfaUrls.validateSiteRelativeUrl(settings.getLoginUrl());
-        String cleanLogoutUrl = MfaUrls.validateSiteRelativeUrl(settings.getLogoutUrl());
-        siteConfigService.save(siteKey, current -> current
-                .withFactor(TotpFactorProvider.FACTOR_TYPE, settings.isEnabled(), settings.getEnabledGroups())
-                .withUrls(cleanLoginUrl, cleanLogoutUrl));
-        logger.info("TOTP site settings saved for {}: enabled={}, groups={}, loginUrl={}, logoutUrl={}",
-                siteKey, settings.isEnabled(), settings.getEnabledGroups(), cleanLoginUrl, cleanLogoutUrl);
+        // validateSiteRelativeUrl("") returns null, which is the correct "clear" value here. Validate
+        // up front so an invalid path fails fast (and before the merge lambda runs).
+        String cleanLoginUrl = settings.isLoginUrlProvided()
+                ? MfaUrls.validateSiteRelativeUrl(settings.getLoginUrl()) : null;
+        String cleanLogoutUrl = settings.isLogoutUrlProvided()
+                ? MfaUrls.validateSiteRelativeUrl(settings.getLogoutUrl()) : null;
+        siteConfigService.save(siteKey, current -> {
+            // Per field: use the validated submitted value when provided, otherwise keep the current
+            // stored value so an omitted field is preserved (never erases its sibling).
+            String newLogin = settings.isLoginUrlProvided() ? cleanLoginUrl : current.getLoginUrl();
+            String newLogout = settings.isLogoutUrlProvided() ? cleanLogoutUrl : current.getLogoutUrl();
+            return current
+                    .withFactor(TotpFactorProvider.FACTOR_TYPE, settings.isEnabled(), settings.getEnabledGroups())
+                    .withUrls(newLogin, newLogout);
+        });
+        logger.info("TOTP site settings saved for {}: enabled={}, groups={}, loginUrlProvided={}, "
+                        + "logoutUrlProvided={}", siteKey, settings.isEnabled(), settings.getEnabledGroups(),
+                settings.isLoginUrlProvided(), settings.isLogoutUrlProvided());
     }
 }

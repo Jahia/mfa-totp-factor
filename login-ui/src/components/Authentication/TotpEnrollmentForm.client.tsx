@@ -139,7 +139,7 @@ export default function TotpEnrollmentForm(props: Readonly<TotpEnrollmentFormPro
         <h2 id="enroll-backup-codes-heading" ref={backupHeadingRef} tabIndex={-1}>
           <Trans i18nKey="enroll.totp.backupTitle" />
         </h2>
-        <p className={classes.helpText} role="alert">
+        <p className={classes.helpText}>
           <Trans i18nKey="enroll.totp.backupWarning" />
         </p>
         <pre

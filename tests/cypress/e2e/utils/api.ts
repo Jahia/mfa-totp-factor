@@ -188,11 +188,15 @@ export function getSiteConfigFile(siteKey: string): Cypress.Chainable<string> {
         form: true,
         body: {script, runScript: 'true'},
     }).then(response => {
+        expect(response.status, 'groovy console must return HTTP 200').to.eq(200);
         // The groovy console renders the return value inside the result fieldset:
         // <strong>Result:</strong><br/> <pre>...</pre>. Extract that <pre> (the help text
         // further down also contains <pre> blocks, so anchor on the Result label).
         const body: string = response.body as string;
         const match = /<strong>Result:<\/strong>[\s\S]*?<pre>([\s\S]*?)<\/pre>/.exec(body);
-        return match ? match[1].trim() : body.trim();
+        if (!match) {
+            throw new Error('Could not parse groovy console result from response');
+        }
+        return match[1].trim();
     });
 }

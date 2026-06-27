@@ -9,6 +9,8 @@ import javax.servlet.FilterChain;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -293,6 +295,42 @@ public class MfaLoginGateFilterTest {
         assertEquals("not-ready + enforcement active must block",
                 Integer.valueOf(HttpServletResponse.SC_FORBIDDEN), recorder.errorSent.get());
         assertNull("must not reach the password-only valve", recorder.chained.get());
+    }
+
+    @Test
+    public void noSiteContext_standsDownWhenConfigServiceReadyWithNoSites() throws Exception {
+        // The companion to the fail-CLOSED-while-not-ready case: once the per-site config service
+        // HAS activated (isReady()==true) and no site enforces, the readiness guard must NOT keep
+        // over-blocking. Enforcement is active but no factor is enabled on any site, so /cms/login
+        // is no bypass and the gate must chain through. This proves the guard blocks ONLY during the
+        // startup window, not whenever a service is wired.
+        MfaLoginGateFilter gate = gateWith("totp", (String) null, provider("totp", false, false, false));
+        gate.setSiteConfigService(activatedEmptyConfigService());
+        Recorder recorder = new Recorder();
+        gate.doFilter(loginRequest(), recorder.response(), recorder.chain());
+        assertNotNull("ready + no site enforcing → the endpoint is no bypass, chain through",
+                recorder.chained.get());
+        assertNull(recorder.errorSent.get());
+        assertNull(recorder.redirectedTo.get());
+    }
+
+    /** A {@link MfaSiteConfigService} activated against an empty etc dir: {@code isReady()==true}, no sites. */
+    private static MfaSiteConfigService activatedEmptyConfigService() throws Exception {
+        Path emptyEtc = Files.createTempDirectory("mfa-gate-empty-etc");
+        emptyEtc.toFile().deleteOnExit();
+        String previous = System.getProperty("karaf.etc");
+        System.setProperty("karaf.etc", emptyEtc.toAbsolutePath().toString());
+        try {
+            MfaSiteConfigService service = new MfaSiteConfigService();
+            service.activate(); // eager scan over an empty dir → ready, nothing loaded
+            return service;
+        } finally {
+            if (previous == null) {
+                System.clearProperty("karaf.etc");
+            } else {
+                System.setProperty("karaf.etc", previous);
+            }
+        }
     }
 
     /** An HTTP request exposing an X-Forwarded-For header and a socket (remote) address. */

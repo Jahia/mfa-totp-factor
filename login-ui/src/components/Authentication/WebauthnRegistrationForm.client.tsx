@@ -105,13 +105,14 @@ export default function WebauthnRegistrationForm(props: Readonly<WebauthnRegistr
           <p className={classes.helpText}>
             <Trans i18nKey="enroll.webauthn.help" />
           </p>
-          <ErrorMessage message={error} />
+          <ErrorMessage message={error} id="webauthn-reg-error" />
           <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
             <button
               ref={registerButtonRef}
               type="button"
               disabled={busy}
               aria-busy={busy}
+              aria-describedby="webauthn-reg-error"
               data-testid="enroll-webauthn-register"
               className={classes.submitButton}
               onClick={registerAndSignIn}

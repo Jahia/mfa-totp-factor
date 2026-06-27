@@ -21,8 +21,9 @@ import static org.junit.Assert.assertTrue;
  * of {@code MfaSiteConfigServiceTest}.
  * <p>
  * The login/logout URLs are factor-agnostic and shared in the same per-site {@code .cfg}, so a TOTP
- * write that does NOT carry URLs ({@code urlsProvided == false}) must be a true PARTIAL update that
- * preserves any previously stored URLs - this is the data-loss fix under test.
+ * write that does NOT carry a given URL (its provided flag is {@code false}) must be a true PARTIAL
+ * update that preserves that previously stored URL - including when only the SIBLING URL is written,
+ * which must not erase the omitted one. This is the data-loss fix under test.
  */
 public class TotpSiteSettingsStoreTest {
 
@@ -46,11 +47,25 @@ public class TotpSiteSettingsStoreTest {
     }
 
     private static TotpSiteSettingsStore.TotpSiteSettings withUrls(boolean enabled, String loginUrl, String logoutUrl) {
-        return new TotpSiteSettingsStore.TotpSiteSettings(enabled, Collections.emptyList(), loginUrl, logoutUrl, true);
+        return new TotpSiteSettingsStore.TotpSiteSettings(
+                enabled, Collections.emptyList(), loginUrl, logoutUrl, true, true);
     }
 
     private static TotpSiteSettingsStore.TotpSiteSettings urlsOmitted(boolean enabled) {
-        return new TotpSiteSettingsStore.TotpSiteSettings(enabled, Collections.emptyList(), null, null, false);
+        return new TotpSiteSettingsStore.TotpSiteSettings(
+                enabled, Collections.emptyList(), null, null, false, false);
+    }
+
+    /** Provide ONLY the login URL; the logout URL is omitted (its provided flag is false). */
+    private static TotpSiteSettingsStore.TotpSiteSettings onlyLoginUrl(boolean enabled, String loginUrl) {
+        return new TotpSiteSettingsStore.TotpSiteSettings(
+                enabled, Collections.emptyList(), loginUrl, null, true, false);
+    }
+
+    /** Provide ONLY the logout URL; the login URL is omitted (its provided flag is false). */
+    private static TotpSiteSettingsStore.TotpSiteSettings onlyLogoutUrl(boolean enabled, String logoutUrl) {
+        return new TotpSiteSettingsStore.TotpSiteSettings(
+                enabled, Collections.emptyList(), null, logoutUrl, false, true);
     }
 
     @Test
@@ -69,12 +84,44 @@ public class TotpSiteSettingsStoreTest {
     }
 
     @Test
+    public void providingOnlyLoginUrlPreservesTheSiblingLogoutUrl() throws Exception {
+        // Arrange: store BOTH URLs.
+        store.save(SITE_KEY, withUrls(true, "/login.html", "/logout.html"));
+        assertEquals("/login.html", store.load(SITE_KEY).getLoginUrl());
+        assertEquals("/logout.html", store.load(SITE_KEY).getLogoutUrl());
+
+        // Act: save providing ONLY the login URL (logout omitted).
+        store.save(SITE_KEY, onlyLoginUrl(true, "/new-login.html"));
+
+        // Assert: login updated AND the sibling logout URL survives (no all-or-nothing erase).
+        TotpSiteSettingsStore.TotpSiteSettings reloaded = store.load(SITE_KEY);
+        assertEquals("loginUrl must update", "/new-login.html", reloaded.getLoginUrl());
+        assertEquals("sibling logoutUrl must survive a login-only save", "/logout.html", reloaded.getLogoutUrl());
+    }
+
+    @Test
+    public void providingOnlyLogoutUrlPreservesTheSiblingLoginUrl() throws Exception {
+        // Arrange: store BOTH URLs.
+        store.save(SITE_KEY, withUrls(true, "/login.html", "/logout.html"));
+        assertEquals("/login.html", store.load(SITE_KEY).getLoginUrl());
+        assertEquals("/logout.html", store.load(SITE_KEY).getLogoutUrl());
+
+        // Act: save providing ONLY the logout URL (login omitted).
+        store.save(SITE_KEY, onlyLogoutUrl(true, "/new-logout.html"));
+
+        // Assert: logout updated AND the sibling login URL survives (no all-or-nothing erase).
+        TotpSiteSettingsStore.TotpSiteSettings reloaded = store.load(SITE_KEY);
+        assertEquals("logoutUrl must update", "/new-logout.html", reloaded.getLogoutUrl());
+        assertEquals("sibling loginUrl must survive a logout-only save", "/login.html", reloaded.getLoginUrl());
+    }
+
+    @Test
     public void emptyStringLoginUrlClearsTheStoredValue() throws Exception {
         // Arrange: a stored login URL.
         store.save(SITE_KEY, withUrls(true, "/login.html", null));
         assertEquals("/login.html", store.load(SITE_KEY).getLoginUrl());
 
-        // Act: an explicit clear - empty string is provided (urlsProvided == true), validated to null.
+        // Act: an explicit clear - empty string is provided (loginUrl provided flag true), validated to null.
         store.save(SITE_KEY, withUrls(true, "", null));
 
         // Assert: the URL is cleared.

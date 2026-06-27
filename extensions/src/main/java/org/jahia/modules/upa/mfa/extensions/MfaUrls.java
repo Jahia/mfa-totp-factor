@@ -1,5 +1,9 @@
 package org.jahia.modules.upa.mfa.extensions;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Locale;
+
 /**
  * Validation helpers for the per-site / global login &amp; logout redirect URLs used by the MFA
  * factor family. Shared so that every writer (the factor admin GraphQL mutations, the site-settings
@@ -10,6 +14,47 @@ public final class MfaUrls {
 
     private MfaUrls() {
         // utility class
+    }
+
+    /**
+     * Whether the value is a safe GLOBAL login/logout redirect target: either a safe
+     * server-relative path (see {@link #isSafeSiteRelativeUrl}) OR a well-formed absolute
+     * {@code http(s)} URL with a host (the documented external-SSO use case). Dangerous schemes
+     * ({@code javascript:}, {@code data:}, {@code vbscript:}) and protocol-relative values are
+     * always rejected. This is the SINGLE rule shared by the write path (admin GraphQL mutation)
+     * and the read path ({@code MfaLoginLogoutProvider}) so validation never drifts between them.
+     */
+    public static boolean isSafeGlobalRedirectUrl(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty() || hasDangerousScheme(trimmed)) {
+            return false;
+        }
+        if (isSafeSiteRelativeUrl(trimmed)) {
+            return true;
+        }
+        return isWellFormedHttpUrl(trimmed);
+    }
+
+    /** Reject the classic XSS/redirect-bait schemes regardless of case or leading whitespace. */
+    private static boolean hasDangerousScheme(String value) {
+        String lower = value.trim().toLowerCase(Locale.ROOT);
+        return lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:");
+    }
+
+    /** A well-formed absolute {@code http(s)} URL with a host (the documented external-SSO case). */
+    private static boolean isWellFormedHttpUrl(String value) {
+        try {
+            URI uri = new URI(value);
+            String scheme = uri.getScheme();
+            return scheme != null
+                    && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
+                    && uri.getHost() != null && !uri.getHost().isEmpty();
+        } catch (URISyntaxException e) {
+            return false;
+        }
     }
 
     /**

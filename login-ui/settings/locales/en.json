@@ -63,7 +63,7 @@
     "enroll.totp.confirm": "Confirm and sign in",
     "enroll.totp.backupTitle": "Your backup codes",
     "enroll.totp.backupWarning": "Save these codes somewhere safe. Each can be used only once and they will not be shown again.",
-    "enroll.totp.backupAck": "I have saved them",
+    "enroll.totp.backupAck": "I have saved my backup codes - continue signing in",
     "enroll.totp.copyCodes": "Copy codes",
     "enroll.totp.copied": "Backup codes copied to the clipboard.",
     "enroll.totp.downloadCodes": "Download as .txt",

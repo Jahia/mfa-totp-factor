@@ -164,14 +164,23 @@ public class MfaSiteConfigService implements ManagedServiceFactory {
                     file, PROP_SITE_KEY);
             return false;
         }
+        MfaSiteConfig config;
         try {
-            configs.put(siteKey, parse(props));
-            return true;
+            config = parse(props);
         } catch (IllegalArgumentException e) {
             logger.warn("Ignoring corrupt MFA per-site config file {} for site '{}': {}",
                     file, siteKey, e.getMessage());
             return false;
         }
+        // Only the map mutation is serialized (file reading stays outside the lock), so the eager
+        // scan participates in the same writeLock serialization as updated()/save() and cannot race
+        // a concurrent write. The pid->siteKey mapping is intentionally NOT seeded here: it is
+        // deferred to the first FileInstall updated() replay, which FileInstall guarantees for files
+        // already present at boot, so the eager scan only needs the siteKey->config snapshot.
+        synchronized (writeLock) {
+            configs.put(siteKey, config);
+        }
+        return true;
     }
 
     @Override

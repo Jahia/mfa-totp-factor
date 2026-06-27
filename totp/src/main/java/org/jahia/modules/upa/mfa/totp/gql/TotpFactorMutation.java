@@ -604,20 +604,22 @@ public class TotpFactorMutation {
         }
         // Authorization gate (site admin). No JCR write anymore - persistence is the per-site .cfg.
         TotpAdminAccess.requireSiteAdmin(siteKey);
-        // The login/logout URLs are factor-agnostic and shared in the per-site .cfg. Distinguish
-        // "omitted" (arg == null -> keep the stored URL) from "explicit clear" (arg == "" -> store
-        // null) BEFORE validation collapses both to null. Only when at least one URL arg is present
-        // do we write the URLs through; otherwise the store performs a partial update that preserves
-        // any previously stored URLs (avoids the data-loss erase when only enabled/groups change).
-        boolean urlsProvided = (loginUrl != null || logoutUrl != null);
+        // The login/logout URLs are factor-agnostic and shared in the per-site .cfg, and each is
+        // tracked INDEPENDENTLY: "omitted" (arg == null -> keep the stored URL) is distinguished from
+        // "explicit clear" (arg == "" -> store null) per field, BEFORE validation collapses both to
+        // null. Tracking the two fields separately means an omitted field never erases its sibling
+        // (the data-loss fix); the store keeps the current stored value for any field not provided.
+        boolean loginUrlProvided = (loginUrl != null);
+        boolean logoutUrlProvided = (logoutUrl != null);
         // Open-redirect guard: only server-relative paths may be stored. Validate here (clear,
-        // field-specific error for the UI) on top of the enforcement inside the store itself.
-        // validateSiteRelativeUrl("") returns null, which is the correct "clear" value.
+        // field-specific error for the UI) on top of the enforcement inside the store itself. Only
+        // validate a field that was actually provided. validateSiteRelativeUrl("") returns null,
+        // which is the correct "clear" value.
         String cleanLoginUrl;
         String cleanLogoutUrl;
         try {
-            cleanLoginUrl = MfaUrls.validateSiteRelativeUrl(loginUrl);
-            cleanLogoutUrl = MfaUrls.validateSiteRelativeUrl(logoutUrl);
+            cleanLoginUrl = loginUrlProvided ? MfaUrls.validateSiteRelativeUrl(loginUrl) : null;
+            cleanLogoutUrl = logoutUrlProvided ? MfaUrls.validateSiteRelativeUrl(logoutUrl) : null;
         } catch (IllegalArgumentException e) {
             logger.warn("Rejected TOTP site settings for {}: invalid login/logout URL submitted by {}",
                     siteKey, currentUserName());
@@ -625,7 +627,7 @@ public class TotpFactorMutation {
         }
         try {
             siteSettingsStore.save(siteKey, new TotpSiteSettingsStore.TotpSiteSettings(
-                    enabled, enabledGroups, cleanLoginUrl, cleanLogoutUrl, urlsProvided));
+                    enabled, enabledGroups, cleanLoginUrl, cleanLogoutUrl, loginUrlProvided, logoutUrlProvided));
             // Report the URLs that are actually in effect after the write: the submitted values
             // when provided, otherwise the ones that survived the partial update.
             TotpSiteSettingsStore.TotpSiteSettings effective = siteSettingsStore.load(siteKey);
