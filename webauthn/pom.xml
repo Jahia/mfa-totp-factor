@@ -116,7 +116,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.19.0</version>
+            <version>2.22.0</version>
         </dependency>
         <!-- yubico parses the CBOR attestation object via a Jackson CBOR mapper. Jahia ships this
              jar on the webapp classpath but does not export the package to OSGi, so embed it. -->
