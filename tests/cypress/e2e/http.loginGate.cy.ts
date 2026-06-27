@@ -6,9 +6,10 @@
  * so on a site that ENFORCES enrollment for any factor it is a second-factor bypass. Two modes
  * close it while enrollment is enforced:
  *
- *  - explicit hard gate (loginGate.enabled, PID org.jahia.modules.mfa.extensions): /cms/login
- *    returns 403 — unless the client IP, read from the FIRST X-Forwarded-For entry, matches
- *    the configured whitelist (loginGate.ipWhitelist);
+ *  - explicit hard gate (loginGate.enabled, PID org.jahia.modules.mfa.extensions): /cms/login is
+ *    rerouted to the configured MFA login page (302), or returns 403 when no distinct login page
+ *    is configured - unless the client IP, read from the FIRST X-Forwarded-For entry, matches the
+ *    configured whitelist (loginGate.ipWhitelist);
  *  - automatic (gate disabled): /cms/login stays reachable ONLY when the operator explicitly
  *    configured it as the login URL; a configured custom login page is served as a 302, and a
  *    missing login URL blocks with 403 (the default screen would silently void the factor).
@@ -55,6 +56,19 @@ const setSiteEnabled = (enabled: boolean) => cy.apollo({
 const requestLogin = (headers: Record<string, string> = {}, qs: Record<string, string> = {}) => cy.request({
     url: '/cms/login',
     qs,
+    headers,
+    failOnStatusCode: false,
+    followRedirect: false
+});
+
+// A password-login POST (form-encoded), like a browser submitting the legacy login form. The creds
+// are bogus on purpose: the auth-valve gate must intercept BEFORE Jahia processes them, so the
+// outcome must not depend on whether the credentials are valid.
+const postLogin = (headers: Record<string, string> = {}, extraBody: Record<string, string> = {}) => cy.request({
+    method: 'POST',
+    url: '/cms/login',
+    form: true,
+    body: {site: SITE_KEY, username: 'gate-probe', password: 'irrelevant', ...extraBody},
     headers,
     failOnStatusCode: false,
     followRedirect: false
@@ -113,6 +127,44 @@ describe('/cms/login gate while TOTP enrollment is enforced (HTTP)', () => {
         requestLogin({}, {site: SITE_KEY}).then(res => {
             expect(res.status, 'explicit enforcing site context').to.eq(403);
         });
+    });
+
+    it('reroutes a non-whitelisted client to the configured login page (hard gate, not a 403)', () => {
+        // Hard gate still ENABLED (from before()); now a login page is configured, so a blocked
+        // non-whitelisted client is sent there instead of getting a bare 403.
+        setGlobalMfaUrls(`/sites/${SITE_KEY}/login.html`);
+        requestLogin().then(res => {
+            expect(res.status, 'hard gate reroutes instead of 403').to.eq(302);
+            expect(res.headers.location).to.contain(`/sites/${SITE_KEY}/login.html`);
+        });
+        // Reset so the automatic-mode cases below start with no login URL configured.
+        setGlobalMfaUrls('', '');
+    });
+
+    it('blocks a password POST to /cms/login BEFORE authentication (closes the MFA bypass)', () => {
+        // The crux: Jahia authenticates a /cms/login POST in its auth pipeline, which runs before the
+        // servlet filter - so the auth valve must intercept it. A non-whitelisted POST with credentials
+        // must be rerouted to the MFA login page (BEFORE auth), NOT processed and sent to
+        // failureRedirect, and must NOT issue a persistent-auth (jid) cookie.
+        setGlobalMfaUrls(`/sites/${SITE_KEY}/login.html`);
+        postLogin({'X-Forwarded-For': '8.8.8.8'}, {failureRedirect: '/failure.html', redirect: '/success.html'})
+            .then(res => {
+                expect(res.status).to.eq(302);
+                expect(res.headers.location, 'rerouted to the MFA login page, not the auth-failure redirect')
+                    .to.contain(`/sites/${SITE_KEY}/login.html`);
+                const cookies = ([] as string[]).concat(res.headers['set-cookie'] || []);
+                expect(cookies.some(c => c.startsWith('jid=')), 'no persistent auth cookie was issued').to.eq(false);
+            });
+        // A whitelisted client keeps the emergency door (the gate must not break legitimate admin
+        // login). With bogus creds the login still fails downstream, so we only assert the valve did
+        // NOT reroute it to the MFA login page - the location may be undefined (no redirect) or the
+        // auth-failure target, but never the gate's login URL. Coerce to '' so the matcher is safe
+        // on an absent Location header.
+        postLogin({'X-Forwarded-For': '203.0.113.7'}, {redirect: '/success.html'}).then(res => {
+            expect(res.headers.location || '', 'whitelisted client is processed normally (not gate-rerouted)')
+                .to.not.contain(`/sites/${SITE_KEY}/login.html`);
+        });
+        setGlobalMfaUrls('', '');
     });
 
     // --- Automatic mode (hard gate disabled, enforcement still active) ----------------------
