@@ -11,6 +11,18 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # These are Jahia-8.2.3-platform-provided (scope=provided) or deliberately pinned to Jahia's
+    # Jackson line; their versions MUST track the Jahia runtime, not upstream latest. Bumping the
+    # compile version risks the bnd-generated OSGi Import-Package range demanding a version Jahia
+    # does not export, which fails bundle resolution at runtime. Dependabot should only manage the
+    # genuinely-embedded, non-Jahia libraries (e.g. com.yubico:webauthn-server-core).
+    ignore:
+      - dependency-name: "org.jahia.modules:*"
+      - dependency-name: "com.fasterxml.jackson*"
+      - dependency-name: "com.graphql-java:graphql-java"
+      - dependency-name: "io.github.graphql-java:graphql-java-annotations"
+      - dependency-name: "commons-codec:commons-codec"
+      - dependency-name: "org.apache.commons:commons-lang3"
 
   - package-ecosystem: "npm"
     directories:
