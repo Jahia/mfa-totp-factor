@@ -23,6 +23,7 @@ updates:
       - dependency-name: "io.github.graphql-java:graphql-java-annotations"
       - dependency-name: "commons-codec:commons-codec"
       - dependency-name: "org.apache.commons:commons-lang3"
+      - dependency-name: "org.slf4j:*"
 
   - package-ecosystem: "npm"
     directories:
