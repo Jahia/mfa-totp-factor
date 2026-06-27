@@ -28,6 +28,12 @@
 }
 .errorMessage > p {
   margin: 0;
+  /* A clear red alert treatment (only the inner <p> renders, so the always-present outer
+     div never shows an empty box). #a00000 text on #fff5f5 = ~7.9:1 — AAA (1.4.6). */
+  background: #fff5f5;
+  border: 1px solid #a00000;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
 }
 
 /* TOTP verification */

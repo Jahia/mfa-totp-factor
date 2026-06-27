@@ -76,7 +76,7 @@ export default function FatalErrorScreen({
         <button
           type="button"
           data-testid="restart-login"
-          className={classes.toggleMode}
+          className={classes.submitButton}
           disabled={inProgress}
           aria-busy={inProgress}
           onClick={restartLogin}
