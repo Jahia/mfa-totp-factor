@@ -102,13 +102,23 @@ const AuditReportSection = ({siteKey}) => {
             )}
 
             {events.length > 0 && (
-                <table data-testid="audit-table" aria-labelledby="webauthn-audit-heading" style={{borderCollapse: 'collapse', width: '100%'}}>
+                <table data-testid="audit-table" aria-labelledby="webauthn-audit-heading" style={{borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed'}}>
+                    {/* Fixed layout + explicit column widths keep the table at 100% of its container
+                        (no horizontal window overflow) while the detail column takes the remainder and
+                        wraps. No overflow:auto wrapper, so the page's own vertical scroll is untouched. */}
+                    <colgroup>
+                        <col style={{width: '9.5rem'}}/>
+                        <col style={{width: '8rem'}}/>
+                        <col style={{width: '7rem'}}/>
+                        <col style={{width: '10rem'}}/>
+                        <col/>
+                    </colgroup>
                     <caption style={{textAlign: 'left', captionSide: 'top', marginBottom: 8, fontWeight: 600}}>
                         {t('siteSettings.audit.title')}
                     </caption>
                     <thead>
                         <tr>
-                            <th scope="col" style={cell}>{t('siteSettings.audit.colTime')}</th>
+                            <th scope="col" style={timeCell}>{t('siteSettings.audit.colTime')}</th>
                             <th scope="col" style={cell}>{t('siteSettings.audit.colEvent')}</th>
                             <th scope="col" style={cell}>{t('siteSettings.audit.colOutcome')}</th>
                             <th scope="col" style={cell}>{t('siteSettings.audit.colUser')}</th>
@@ -118,7 +128,7 @@ const AuditReportSection = ({siteKey}) => {
                     <tbody>
                         {events.map(e => (
                             <tr key={`${e.timestamp}-${e.eventType}-${e.userId}-${e.detail}`}>
-                                <td style={cell}>{formatTs(e.timestamp)}</td>
+                                <td style={timeCell}>{formatTs(e.timestamp)}</td>
                                 <td style={cell}>{e.eventType}</td>
                                 <td style={cell}>{e.outcome}</td>
                                 <td style={cell}>{e.userId}</td>
@@ -132,6 +142,10 @@ const AuditReportSection = ({siteKey}) => {
     );
 };
 
-const cell = {border: '1px solid #e0e0e0', padding: '4px 8px', textAlign: 'left', fontSize: '0.85rem'};
+// overflowWrap/wordBreak let long free-form values (IPs, user agents, messages) wrap inside their
+// fixed-width column instead of forcing the table wider than its container.
+const cell = {border: '1px solid #e0e0e0', padding: '4px 8px', textAlign: 'left', fontSize: '0.85rem', verticalAlign: 'top', wordBreak: 'break-word', overflowWrap: 'anywhere'};
+// The timestamp is a fixed-shape value: keep it on one line in its sized column.
+const timeCell = {...cell, whiteSpace: 'nowrap', wordBreak: 'normal', overflowWrap: 'normal'};
 
 export default AuditReportSection;

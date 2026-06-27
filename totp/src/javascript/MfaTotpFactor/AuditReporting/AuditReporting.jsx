@@ -42,13 +42,19 @@ const AuditReporting = () => {
                 </div>
             )}
             content={(
-                <div style={{padding: '24px', maxWidth: 760}}>
-                    {sections.map((section, index) => (
-                        <React.Fragment key={section.key}>
-                            {index > 0 && <hr style={{margin: '32px 0'}}/>}
-                            {React.createElement(section.component, {siteKey})}
-                        </React.Fragment>
-                    ))}
+                // ContentLayout's layers are flex:1/min-height:0 with no overflow, so tall content
+                // (a loaded events table) is clipped with no scrollbar. The OUTER div fills the
+                // bounded-height paper and owns the vertical scroll full-width, so the scrollbar sits
+                // at the window's right edge; the INNER div caps the readable content width.
+                <div style={{flex: '1 1 0', minHeight: 0, overflowY: 'auto'}}>
+                    <div style={{padding: '24px', maxWidth: 760, boxSizing: 'border-box'}}>
+                        {sections.map((section, index) => (
+                            <React.Fragment key={section.key}>
+                                {index > 0 && <hr style={{margin: '32px 0'}}/>}
+                                {React.createElement(section.component, {siteKey})}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 </div>
             )}
         />
