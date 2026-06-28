@@ -3,5 +3,6 @@ mfaExtensions:
   grants:
   - api: "graphql.Query.mfaSessionFactors"
   - api: "graphql.MfaExtensionsSessionFactors"
+  - api: "graphql.Mutation.mfaRequestReset"
   auto_apply:
   - always: "true"

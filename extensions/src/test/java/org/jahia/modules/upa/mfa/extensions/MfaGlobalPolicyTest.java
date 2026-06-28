@@ -8,6 +8,7 @@ import java.util.Map;
 
 import static org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy.parseEnforcedFactors;
 import static org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy.parseGraceDays;
+import static org.jahia.modules.upa.mfa.extensions.MfaGlobalPolicy.parseNotifyEmails;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -80,6 +81,32 @@ public class MfaGlobalPolicyTest {
         assertEquals(0L, parseGraceDays("-5"));
         assertEquals(7L, parseGraceDays(" 7 "));
         assertEquals(MfaGlobalPolicy.MAX_GRACE_DAYS, parseGraceDays("99999"));
+    }
+
+    // --- resetRequest.notifyEmail parsing -------------------------------------------------
+
+    @Test
+    public void notifyEmailsBlankOrNullMeansNone() {
+        assertTrue(parseNotifyEmails(null).isEmpty());
+        assertTrue(parseNotifyEmails("").isEmpty());
+        assertTrue(parseNotifyEmails("  ").isEmpty());
+    }
+
+    @Test
+    public void notifyEmailsTrimsDedupesAndRequiresAtSign() {
+        assertEquals(Arrays.asList("a@x.com", "b@y.com"),
+                parseNotifyEmails(" a@x.com , b@y.com , a@x.com "));
+        // entries without a usable '@' are dropped
+        assertTrue(parseNotifyEmails("not-an-email, @nodomain, x").isEmpty());
+    }
+
+    @Test
+    public void notifyEmailsExposedThroughGetter() {
+        MfaGlobalPolicy policy = new MfaGlobalPolicy();
+        Map<String, Object> props = new HashMap<>();
+        props.put("resetRequest.notifyEmail", "security@example.com");
+        policy.activate(props);
+        assertEquals(Arrays.asList("security@example.com"), policy.getResetNotifyEmails());
     }
 
     // --- helper ----------------------------------------------------------------------------

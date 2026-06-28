@@ -11,6 +11,7 @@ import WebauthnRegistrationForm from "./WebauthnRegistrationForm.client";
 import type { Props } from "./types";
 import { redirect, sessionFactors } from "../../services";
 import FatalErrorScreen from "./FatalErrorScreen.client";
+import RequestReset from "./RequestReset.client";
 import type { MfaError } from "../../services/common";
 
 enum Step {
@@ -261,7 +262,14 @@ export default function Authentication({
       {step === Step.CHOOSE_FACTOR && (
         <FactorChooser factors={availableFactors} onSelect={onFactorPicked} headingRef={headingRef} />
       )}
-      {step === Step.VERIFY && renderVerificationForm()}
+      {step === Step.VERIFY && (
+        <>
+          {renderVerificationForm()}
+          {/* Stuck-at-MFA escape hatch: request an admin reset (e.g. lost authenticator, no backup
+              codes). Shown for any factor at the verification step. */}
+          <RequestReset />
+        </>
+      )}
       {step === Step.ENROLL && renderEnrollment()}
     </ApiRootContext>
   );

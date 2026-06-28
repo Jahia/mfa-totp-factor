@@ -45,6 +45,7 @@ public class MfaGlobalPolicy {
 
     static final String CONFIG_ENFORCED_FACTORS = "enforcedFactors";
     static final String CONFIG_GRACE_DAYS = "graceDays";
+    static final String CONFIG_RESET_NOTIFY_EMAIL = "resetRequest.notifyEmail";
 
     /** Upper bound for the grace window — an unbounded value would disable enforcement forever. */
     public static final long MAX_GRACE_DAYS = 365L;
@@ -52,6 +53,8 @@ public class MfaGlobalPolicy {
     private final AtomicReference<List<String>> enforcedFactors =
             new AtomicReference<>(Collections.emptyList());
     private final AtomicLong graceDays = new AtomicLong(0L);
+    private final AtomicReference<List<String>> resetNotifyEmails =
+            new AtomicReference<>(Collections.emptyList());
 
     @Activate
     @Modified
@@ -59,10 +62,28 @@ public class MfaGlobalPolicy {
         List<String> factors = parseEnforcedFactors(
                 properties == null ? null : properties.get(CONFIG_ENFORCED_FACTORS));
         long grace = parseGraceDays(properties == null ? null : properties.get(CONFIG_GRACE_DAYS));
+        List<String> notify = parseNotifyEmails(
+                properties == null ? null : properties.get(CONFIG_RESET_NOTIFY_EMAIL));
         enforcedFactors.set(factors);
         graceDays.set(grace);
-        logger.info("MFA global policy {} (enforcedFactors={}, graceDays={})",
-                factors.isEmpty() ? "INACTIVE" : "ACTIVE", factors, grace);
+        resetNotifyEmails.set(notify);
+        logger.info("MFA global policy {} (enforcedFactors={}, graceDays={}, resetNotifyRecipients={})",
+                factors.isEmpty() ? "INACTIVE" : "ACTIVE", factors, grace, notify.size());
+    }
+
+    /** Parse the comma-separated reset-notification recipient list: trimmed, must contain '@'. */
+    public static List<String> parseNotifyEmails(Object raw) {
+        if (raw == null || StringUtils.isBlank(raw.toString())) {
+            return Collections.emptyList();
+        }
+        Set<String> emails = new LinkedHashSet<>();
+        for (String part : raw.toString().split(",")) {
+            String email = part.trim();
+            if (email.length() > 2 && email.indexOf('@') > 0) {
+                emails.add(email);
+            }
+        }
+        return Collections.unmodifiableList(new ArrayList<>(emails));
     }
 
     /** Parse the comma-separated factor list: trimmed, lowercased, deduped, order preserved. */
@@ -114,5 +135,14 @@ public class MfaGlobalPolicy {
     /** The global grace window in days, clamped to {@code [0, 365]}. */
     public long getGraceDays() {
         return graceDays.get();
+    }
+
+    /**
+     * Recipients notified when a locked-out user requests an MFA reset (comma-separated config,
+     * each validated to contain '@'). Empty (the default) means the request flow has nowhere to
+     * send notifications — it then logs a warning and no-ops.
+     */
+    public List<String> getResetNotifyEmails() {
+        return resetNotifyEmails.get();
     }
 }

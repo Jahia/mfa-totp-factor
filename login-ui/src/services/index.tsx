@@ -15,6 +15,7 @@ export { default as regenerateBackupCodes } from "./regenerateBackupCodes";
 export { default as webauthnStatus } from "./webauthnStatus";
 export { default as renameWebauthnCredential } from "./renameWebauthnCredential";
 export { default as deleteWebauthnCredential } from "./deleteWebauthnCredential";
+export { default as requestMfaReset } from "./requestMfaReset";
 export { default as sessionFactors } from "./sessionFactors";
 export { default as clear } from "./clear";
 export { default as redirect } from "./redirect";
