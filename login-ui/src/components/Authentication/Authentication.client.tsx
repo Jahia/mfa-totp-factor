@@ -92,6 +92,11 @@ export default function Authentication({
     const configured = await sessionFactors(apiRoot);
     const offer =
       configured === null ? remainingFactors : remainingFactors.filter((f) => configured.includes(f));
+    // Narrow the available set to the configured factors so neither the chooser NOR the
+    // "use a different method" control (gated on availableFactors.length > 1) can surface an
+    // unconfigured factor — picking one is a dead end (it drains as skipped server-side). When
+    // nothing is configured, keep the full list: the flow routes to inline enrollment below.
+    setAvailableFactors(offer.length > 0 ? offer : remainingFactors);
     if (offer.length === 0) {
       // Nothing configured yet: walk the required factors — the first prepare routes to
       // inline enrollment (enrollment_required), where the ENROLLMENT chooser takes over.
@@ -101,7 +106,6 @@ export default function Authentication({
       setActiveFactor(offer[0]);
       setStep(Step.VERIFY);
     } else {
-      setAvailableFactors(offer);
       setStep(Step.CHOOSE_FACTOR);
     }
   };
