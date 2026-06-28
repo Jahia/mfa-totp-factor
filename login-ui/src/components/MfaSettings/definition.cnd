@@ -1,0 +1,4 @@
+[totpui:mfaSettings] > totpuimix:component, jnt:content
+ - title (string) = 'Manage two-factor authentication' i18n autocreated mandatory
+ - introHtml (string,richtext) i18n autocreated
+ - showEmailFactor (boolean) = true autocreated

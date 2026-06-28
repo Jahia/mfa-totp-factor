@@ -166,6 +166,53 @@ export function createSiteWithTotpLoginPage(siteKey: string): void {
     publishAndWaitJobEnding(`/sites/${siteKey}`, ['en']);
 }
 
+export const MFA_SETTINGS_PAGE_NAME = 'mfaSettings';
+
+export function getMfaSettingsPageURL(siteKey: string): string {
+    return `/sites/${siteKey}/${MFA_SETTINGS_PAGE_NAME}.html`;
+}
+
+/**
+ * Provision a site containing a published page that renders the totpui:mfaSettings view
+ * (the live-site self-service MFA panel). Mirrors createSiteWithTotpLoginPage. The component
+ * is POST-AUTH: an anonymous visitor sees a sign-in prompt; a logged-in user manages their
+ * own factors.
+ */
+export function createSiteWithMfaSettingsPage(siteKey: string): void {
+    deleteSite(siteKey);
+    createSite(siteKey, {
+        locale: 'en',
+        languages: 'en',
+        serverName: 'localhost',
+        templateSet: 'user-password-authentication-template-set-test-module',
+    });
+    enableModule('user-password-authentication-ui', siteKey);
+    enableModule('mfa-factors-login-ui', siteKey);
+
+    addNode({
+        parentPathOrId: `/sites/${siteKey}`,
+        name: MFA_SETTINGS_PAGE_NAME,
+        primaryNodeType: 'jnt:page',
+        properties: [
+            {name: 'jcr:title', value: 'MFA settings page', language: 'en'},
+            {name: 'j:templateName', value: 'simple'},
+        ],
+    });
+    addNode({
+        parentPathOrId: `/sites/${siteKey}/${MFA_SETTINGS_PAGE_NAME}`,
+        name: 'pagecontent',
+        primaryNodeType: 'jnt:contentList',
+        properties: [],
+    });
+    addNode({
+        parentPathOrId: `/sites/${siteKey}/${MFA_SETTINGS_PAGE_NAME}/pagecontent`,
+        name: 'mfaSettings',
+        primaryNodeType: 'totpui:mfaSettings',
+        properties: [],
+    });
+    publishAndWaitJobEnding(`/sites/${siteKey}`, ['en']);
+}
+
 export function deleteTotpLoginSite(siteKey: string): void {
     try {
         deleteSite(siteKey);
