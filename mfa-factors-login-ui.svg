@@ -1,0 +1,15 @@
+<svg width="128" height="128" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MFA login UI module icon">
+  <defs>
+    <linearGradient id="bg-ui" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5A3D0E"/>
+      <stop offset="1" stop-color="#0E1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#bg-ui)"/>
+  <path d="M25 14 H32 a2.5 2.5 0 0 1 2.5 2.5 V31.5 a2.5 2.5 0 0 1 -2.5 2.5 H25"
+        stroke="#F4F6FB" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <g stroke="#F59E0B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="13.5" y1="24" x2="26.5" y2="24"/>
+    <path d="M21.5 19 L26.5 24 L21.5 29"/>
+  </g>
+</svg>
