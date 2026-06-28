@@ -25,7 +25,15 @@ public class MfaExtensionsConfigSupportTest {
 
     private static MfaExtensionsConfigSupport.Update update(List<String> factors, Integer grace, Boolean gate,
                                                             String whitelist, String loginUrl, String logoutUrl) {
-        return new MfaExtensionsConfigSupport.Update(factors, grace, gate, whitelist, loginUrl, logoutUrl);
+        return new MfaExtensionsConfigSupport.Update(factors, grace, gate, whitelist, loginUrl, logoutUrl, null, null);
+    }
+
+    private static MfaExtensionsConfigSupport.Update emailUpdate(String resetNotifyEmail) {
+        return new MfaExtensionsConfigSupport.Update(null, null, null, null, null, null, resetNotifyEmail, null);
+    }
+
+    private static MfaExtensionsConfigSupport.Update trustForwardedForUpdate(Boolean trust) {
+        return new MfaExtensionsConfigSupport.Update(null, null, null, null, null, null, null, trust);
     }
 
     @Test
@@ -90,6 +98,41 @@ public class MfaExtensionsConfigSupportTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> MfaExtensionsConfigSupport.applyUpdate(props, bad, REGISTERED));
         assertEquals(MfaExtensionsConfigSupport.ERROR_INVALID_WHITELIST, e.getMessage());
+    }
+
+    @Test
+    public void trustForwardedForDefaultsTrueAndPersists() {
+        // Absent key reads as true (matches the gate's backward-compatible default).
+        assertTrue(MfaExtensionsConfigSupport.read(new Hashtable<>(), REGISTERED).isLoginGateTrustForwardedFor());
+
+        Dictionary<String, Object> props = new Hashtable<>();
+        MfaExtensionsConfigSupport.applyUpdate(props, trustForwardedForUpdate(false), REGISTERED);
+        assertEquals("false", props.get("loginGate.trustForwardedFor"));
+        assertFalse(MfaExtensionsConfigSupport.read(props, REGISTERED).isLoginGateTrustForwardedFor());
+    }
+
+    @Test
+    public void acceptsAndDedupesValidNotifyEmails() {
+        Dictionary<String, Object> props = new Hashtable<>();
+        MfaExtensionsConfigSupport.applyUpdate(props,
+                emailUpdate(" a@x.com , b@y.com , a@x.com "), REGISTERED);
+        assertEquals("a@x.com,b@y.com", props.get("resetRequest.notifyEmail"));
+    }
+
+    @Test
+    public void rejectsMalformedNotifyEmail() {
+        Dictionary<String, Object> props = new Hashtable<>();
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> MfaExtensionsConfigSupport.applyUpdate(props, emailUpdate("a@x.com, not-an-email"), REGISTERED));
+        assertEquals(MfaExtensionsConfigSupport.ERROR_INVALID_EMAIL, e.getMessage());
+    }
+
+    @Test
+    public void blankNotifyEmailClearsTheKey() {
+        Dictionary<String, Object> props = new Hashtable<>();
+        props.put("resetRequest.notifyEmail", "old@x.com");
+        MfaExtensionsConfigSupport.applyUpdate(props, emailUpdate("  "), REGISTERED);
+        assertEquals("", props.get("resetRequest.notifyEmail"));
     }
 
     @Test

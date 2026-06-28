@@ -22,10 +22,13 @@ public class MfaExtensionsConfiguration {
     private final String loginGateIpWhitelist;
     private final String loginUrl;
     private final String logoutUrl;
+    private final String resetNotifyEmail;
+    private final boolean loginGateTrustForwardedFor;
     private final List<String> registeredFactors;
 
     public MfaExtensionsConfiguration(List<String> enforcedFactors, long graceDays, boolean loginGateEnabled,
                                       String loginGateIpWhitelist, String loginUrl, String logoutUrl,
+                                      String resetNotifyEmail, boolean loginGateTrustForwardedFor,
                                       List<String> registeredFactors) {
         this.enforcedFactors = immutable(enforcedFactors);
         this.graceDays = graceDays;
@@ -33,6 +36,8 @@ public class MfaExtensionsConfiguration {
         this.loginGateIpWhitelist = loginGateIpWhitelist;
         this.loginUrl = loginUrl;
         this.logoutUrl = logoutUrl;
+        this.resetNotifyEmail = resetNotifyEmail;
+        this.loginGateTrustForwardedFor = loginGateTrustForwardedFor;
         this.registeredFactors = immutable(registeredFactors);
     }
 
@@ -70,6 +75,14 @@ public class MfaExtensionsConfiguration {
     }
 
     @GraphQLField
+    @GraphQLName("loginGateTrustForwardedFor")
+    @GraphQLDescription("Whether the gate reads the client IP from the first X-Forwarded-For entry (default true). "
+            + "Set false when NOT behind a proxy that overwrites the header, so the spoof-proof socket address is used.")
+    public boolean isLoginGateTrustForwardedFor() {
+        return loginGateTrustForwardedFor;
+    }
+
+    @GraphQLField
     @GraphQLName("loginUrl")
     @GraphQLDescription("Global default login page URL (per-site values take precedence).")
     public String getLoginUrl() {
@@ -81,6 +94,13 @@ public class MfaExtensionsConfiguration {
     @GraphQLDescription("Global default logout page URL (per-site values take precedence).")
     public String getLogoutUrl() {
         return logoutUrl;
+    }
+
+    @GraphQLField
+    @GraphQLName("resetNotifyEmail")
+    @GraphQLDescription("Comma-separated administrator email(s) notified when a locked-out user requests an MFA reset. Empty = feature off.")
+    public String getResetNotifyEmail() {
+        return resetNotifyEmail;
     }
 
     @GraphQLField

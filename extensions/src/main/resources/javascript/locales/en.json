@@ -28,6 +28,10 @@
         "label": "Enable the /cms/login gate",
         "help": "Set the IP whitelist FIRST: enabling the gate with an empty whitelist locks everyone (including platform administrators) out of /cms/login as soon as enforcement applies."
       },
+      "trustForwardedFor": {
+        "label": "Trust X-Forwarded-For for the client IP",
+        "help": "When on (default), the whitelist is matched against the first X-Forwarded-For entry. Turn OFF when Jahia is NOT behind a reverse proxy that overwrites that header - otherwise the value is client-spoofable and could be forged to match a whitelisted IP. Off uses the spoof-proof socket address."
+      },
       "whitelist": {
         "label": "IP whitelist",
         "help": "Comma-separated IPv4/IPv6 addresses or CIDR blocks allowed through the gate. The client IP is the first X-Forwarded-For entry when present - only enable the gate behind a reverse proxy that overwrites that header."
@@ -45,10 +49,19 @@
       "label": "Logout page URL",
       "help": "Optional custom sign-out page. Leave empty to use Jahia's default logout handling."
     },
+    "reset": {
+      "title": "Locked-out reset requests",
+      "help": "When a user proves their password but cannot pass any second factor (lost authenticator, no backup codes), the login page offers a \"request a reset\" action that emails the administrator(s) below. An admin then resets that user's factor(s). Leave empty to disable the action."
+    },
+    "resetNotifyEmail": {
+      "label": "Reset-request notification email(s)",
+      "help": "Comma-separated administrator address(es) notified of reset requests. Empty = the request action is effectively off (it shows a generic confirmation but notifies no one)."
+    },
     "errors": {
       "unknownFactor": "One of the enforced factors is not an installed factor type.",
       "invalidGraceDays": "The grace period must be between 0 and 365 days.",
       "invalidWhitelist": "The IP whitelist contains an invalid entry - use IPv4/IPv6 addresses or CIDR blocks.",
+      "invalidEmail": "The notification email list contains an invalid address.",
       "permissionDenied": "You do not have permission to change this configuration.",
       "generic": "The configuration could not be saved. Please check the server logs."
     }
