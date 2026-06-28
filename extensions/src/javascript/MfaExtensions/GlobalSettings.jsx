@@ -133,7 +133,12 @@ const GlobalSettings = () => {
                 </div>
             )}
             content={(
-                <div style={{padding: '24px', maxWidth: 760}}>
+                // ContentLayout's layers are flex:1/min-height:0 with no overflow, so tall content
+                // (this full settings form) is clipped with no scrollbar. The OUTER div fills the
+                // bounded-height paper and owns the vertical scroll full-width, so the scrollbar sits
+                // at the window's right edge; the INNER div caps the readable content width.
+                <div style={{flex: '1 1 0', minHeight: 0, overflowY: 'auto'}}>
+                    <div style={{padding: '24px', maxWidth: 760, boxSizing: 'border-box'}}>
                     {loading ? <Loader/> : (
                         <>
                             <Typography style={{marginBottom: 24, display: 'block'}}>
@@ -262,6 +267,7 @@ const GlobalSettings = () => {
                             )}
                         </>
                     )}
+                    </div>
                 </div>
             )}
         />
