@@ -144,7 +144,7 @@ export default function EmailCodeVerificationForm(
         <div className={classes.additionalAction}>
           <button
             type="button"
-            className={classes.toggleMode}
+            className={classes.secondaryButton}
             data-testid="email-resend"
             disabled={resending}
             aria-busy={resending}
