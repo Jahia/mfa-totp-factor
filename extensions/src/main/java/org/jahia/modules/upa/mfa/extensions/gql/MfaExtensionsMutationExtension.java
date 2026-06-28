@@ -47,9 +47,12 @@ public class MfaExtensionsMutationExtension {
             @GraphQLName("loginGateEnabled") Boolean loginGateEnabled,
             @GraphQLName("loginGateIpWhitelist") String loginGateIpWhitelist,
             @GraphQLName("loginUrl") String loginUrl,
-            @GraphQLName("logoutUrl") String logoutUrl) {
+            @GraphQLName("logoutUrl") String logoutUrl,
+            @GraphQLName("resetNotifyEmail") String resetNotifyEmail,
+            @GraphQLName("loginGateTrustForwardedFor") Boolean loginGateTrustForwardedFor) {
         MfaExtensionsConfigSupport.Update update = new MfaExtensionsConfigSupport.Update(
-                enforcedFactors, graceDays, loginGateEnabled, loginGateIpWhitelist, loginUrl, logoutUrl);
+                enforcedFactors, graceDays, loginGateEnabled, loginGateIpWhitelist, loginUrl, logoutUrl,
+                resetNotifyEmail, loginGateTrustForwardedFor);
         try {
             ConfigurationAdmin configAdmin = BundleUtils.getOsgiService(ConfigurationAdmin.class, null);
             if (configAdmin == null) {

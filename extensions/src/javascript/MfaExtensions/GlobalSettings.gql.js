@@ -6,9 +6,11 @@ export const ConfigurationQuery = gql`
             enforcedFactors
             graceDays
             loginGateEnabled
+            loginGateTrustForwardedFor
             loginGateIpWhitelist
             loginUrl
             logoutUrl
+            resetNotifyEmail
             registeredFactors
         }
     }
@@ -19,24 +21,30 @@ export const SaveConfigurationMutation = gql`
         $enforcedFactors: [String]
         $graceDays: Int
         $loginGateEnabled: Boolean
+        $loginGateTrustForwardedFor: Boolean
         $loginGateIpWhitelist: String
         $loginUrl: String
         $logoutUrl: String
+        $resetNotifyEmail: String
     ) {
         mfaExtensionsSaveConfiguration(
             enforcedFactors: $enforcedFactors
             graceDays: $graceDays
             loginGateEnabled: $loginGateEnabled
+            loginGateTrustForwardedFor: $loginGateTrustForwardedFor
             loginGateIpWhitelist: $loginGateIpWhitelist
             loginUrl: $loginUrl
             logoutUrl: $logoutUrl
+            resetNotifyEmail: $resetNotifyEmail
         ) {
             enforcedFactors
             graceDays
             loginGateEnabled
+            loginGateTrustForwardedFor
             loginGateIpWhitelist
             loginUrl
             logoutUrl
+            resetNotifyEmail
             registeredFactors
         }
     }

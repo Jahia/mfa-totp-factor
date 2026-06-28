@@ -23,20 +23,23 @@ final class MfaExtensionsConfigSupport {
     static final String KEY_ENFORCED_FACTORS = "enforcedFactors";
     static final String KEY_GRACE_DAYS = "graceDays";
     static final String KEY_GATE_ENABLED = "loginGate.enabled";
+    static final String KEY_GATE_TRUST_FORWARDED_FOR = "loginGate.trustForwardedFor";
     static final String KEY_GATE_WHITELIST = "loginGate.ipWhitelist";
     static final String KEY_LOGIN_URL = "loginUrl";
     static final String KEY_LOGOUT_URL = "logoutUrl";
+    static final String KEY_RESET_NOTIFY_EMAIL = "resetRequest.notifyEmail";
 
     static final String ERROR_UNKNOWN_FACTOR = "mfaExtensions.unknown_factor";
     static final String ERROR_INVALID_GRACE_DAYS = "mfaExtensions.invalid_grace_days";
     static final String ERROR_INVALID_WHITELIST = "mfaExtensions.invalid_whitelist";
     static final String ERROR_INVALID_URL = "mfaExtensions.invalid_url";
+    static final String ERROR_INVALID_EMAIL = "mfaExtensions.invalid_email";
 
     private MfaExtensionsConfigSupport() {
         // utility class
     }
 
-    /** The six editable values; a {@code null} field means "leave the key unchanged". */
+    /** The editable values; a {@code null} field means "leave the key unchanged". */
     static final class Update {
         final List<String> enforcedFactors;
         final Integer graceDays;
@@ -44,15 +47,20 @@ final class MfaExtensionsConfigSupport {
         final String loginGateIpWhitelist;
         final String loginUrl;
         final String logoutUrl;
+        final String resetNotifyEmail;
+        final Boolean loginGateTrustForwardedFor;
 
         Update(List<String> enforcedFactors, Integer graceDays, Boolean loginGateEnabled,
-               String loginGateIpWhitelist, String loginUrl, String logoutUrl) {
+               String loginGateIpWhitelist, String loginUrl, String logoutUrl, String resetNotifyEmail,
+               Boolean loginGateTrustForwardedFor) {
             this.enforcedFactors = enforcedFactors;
             this.graceDays = graceDays;
             this.loginGateEnabled = loginGateEnabled;
             this.loginGateIpWhitelist = loginGateIpWhitelist;
             this.loginUrl = loginUrl;
             this.logoutUrl = logoutUrl;
+            this.resetNotifyEmail = resetNotifyEmail;
+            this.loginGateTrustForwardedFor = loginGateTrustForwardedFor;
         }
     }
 
@@ -65,6 +73,8 @@ final class MfaExtensionsConfigSupport {
                 stringValue(properties, KEY_GATE_WHITELIST),
                 stringValue(properties, KEY_LOGIN_URL),
                 stringValue(properties, KEY_LOGOUT_URL),
+                stringValue(properties, KEY_RESET_NOTIFY_EMAIL),
+                boolValueDefaultTrue(properties, KEY_GATE_TRUST_FORWARDED_FOR),
                 registeredFactors);
     }
 
@@ -89,6 +99,9 @@ final class MfaExtensionsConfigSupport {
         if (update.loginGateEnabled != null) {
             properties.put(KEY_GATE_ENABLED, String.valueOf(update.loginGateEnabled));
         }
+        if (update.loginGateTrustForwardedFor != null) {
+            properties.put(KEY_GATE_TRUST_FORWARDED_FOR, String.valueOf(update.loginGateTrustForwardedFor));
+        }
         if (update.loginGateIpWhitelist != null) {
             properties.put(KEY_GATE_WHITELIST, validateWhitelist(update.loginGateIpWhitelist));
         }
@@ -98,6 +111,33 @@ final class MfaExtensionsConfigSupport {
         if (update.logoutUrl != null) {
             properties.put(KEY_LOGOUT_URL, validateGlobalUrl(update.logoutUrl));
         }
+        if (update.resetNotifyEmail != null) {
+            properties.put(KEY_RESET_NOTIFY_EMAIL, validateEmails(update.resetNotifyEmail));
+        }
+    }
+
+    /**
+     * Validate the comma-separated reset-notification recipients: each non-blank entry must look
+     * like an email (contain a non-leading {@code @}). Blank clears the key (feature off). Trimmed
+     * and deduped on success.
+     *
+     * @throws IllegalArgumentException ({@link #ERROR_INVALID_EMAIL}) on a malformed entry
+     */
+    private static String validateEmails(String submitted) {
+        List<String> cleaned = new ArrayList<>();
+        for (String part : submitted.split(",")) {
+            String email = part.trim();
+            if (email.isEmpty()) {
+                continue;
+            }
+            if (email.length() < 3 || email.indexOf('@') <= 0) {
+                throw new IllegalArgumentException(ERROR_INVALID_EMAIL);
+            }
+            if (!cleaned.contains(email)) {
+                cleaned.add(email);
+            }
+        }
+        return String.join(",", cleaned);
     }
 
     /**
@@ -165,5 +205,11 @@ final class MfaExtensionsConfigSupport {
     private static String stringValue(Dictionary<String, Object> properties, String key) {
         Object raw = value(properties, key);
         return raw == null ? "" : StringUtils.trimToEmpty(raw.toString());
+    }
+
+    /** Boolean read defaulting to {@code true} when the key is absent (matches the gate's parsing). */
+    private static boolean boolValueDefaultTrue(Dictionary<String, Object> properties, String key) {
+        Object raw = value(properties, key);
+        return raw == null || Boolean.parseBoolean(raw.toString());
     }
 }

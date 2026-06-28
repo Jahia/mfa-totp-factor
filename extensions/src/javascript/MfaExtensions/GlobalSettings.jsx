@@ -21,6 +21,10 @@ function mapError(err) {
         return 'settings.errors.invalidWhitelist';
     }
 
+    if (msg.indexOf('invalid_email') !== -1) {
+        return 'settings.errors.invalidEmail';
+    }
+
     if (msg.indexOf('Permission denied') !== -1 || msg.indexOf('permission') !== -1) {
         return 'settings.errors.permissionDenied';
     }
@@ -41,9 +45,11 @@ const GlobalSettings = () => {
     const [enforcedFactors, setEnforcedFactors] = useState([]);
     const [graceDays, setGraceDays] = useState(0);
     const [gateEnabled, setGateEnabled] = useState(false);
+    const [trustForwardedFor, setTrustForwardedFor] = useState(true);
     const [ipWhitelist, setIpWhitelist] = useState('');
     const [loginUrl, setLoginUrl] = useState('');
     const [logoutUrl, setLogoutUrl] = useState('');
+    const [resetNotifyEmail, setResetNotifyEmail] = useState('');
     const [savedAt, setSavedAt] = useState(null);
     const [errorKey, setErrorKey] = useState(null);
 
@@ -56,9 +62,11 @@ const GlobalSettings = () => {
             setEnforcedFactors(c.enforcedFactors || []);
             setGraceDays(Number(c.graceDays) || 0);
             setGateEnabled(Boolean(c.loginGateEnabled));
+            setTrustForwardedFor(c.loginGateTrustForwardedFor !== false);
             setIpWhitelist(c.loginGateIpWhitelist || '');
             setLoginUrl(c.loginUrl || '');
             setLogoutUrl(c.logoutUrl || '');
+            setResetNotifyEmail(c.resetNotifyEmail || '');
         }
     }, [data]);
 
@@ -84,9 +92,11 @@ const GlobalSettings = () => {
                 enforcedFactors,
                 graceDays: Math.max(0, Number(graceDays) || 0),
                 loginGateEnabled: gateEnabled,
+                loginGateTrustForwardedFor: trustForwardedFor,
                 loginGateIpWhitelist: ipWhitelist,
                 loginUrl,
-                logoutUrl
+                logoutUrl,
+                resetNotifyEmail
             }
         });
     };
@@ -176,6 +186,13 @@ const GlobalSettings = () => {
                                            help={t('settings.gate.enabled.help')}
                                            onChange={setGateEnabled}/>
 
+                            <CheckboxField id="extensions-gate-trust-xff"
+                                           testid="extensions-gate-trust-xff-toggle"
+                                           checked={trustForwardedFor}
+                                           label={t('settings.gate.trustForwardedFor.label')}
+                                           help={t('settings.gate.trustForwardedFor.help')}
+                                           onChange={setTrustForwardedFor}/>
+
                             <TextField id="extensions-gate-whitelist"
                                        testid="extensions-gate-whitelist-input"
                                        type="text"
@@ -209,6 +226,22 @@ const GlobalSettings = () => {
                                        label={t('settings.logoutUrl.label')}
                                        help={t('settings.logoutUrl.help')}
                                        onChange={v => setLogoutUrl(v)}/>
+
+                            <Typography variant="subheading" weight="bold" style={{display: 'block', margin: '8px 0 16px'}}>
+                                {t('settings.reset.title')}
+                            </Typography>
+                            <Typography style={{display: 'block', marginBottom: 16, color: '#555'}}>
+                                {t('settings.reset.help')}
+                            </Typography>
+
+                            <TextField id="extensions-reset-notify-email"
+                                       testid="extensions-reset-notify-email-input"
+                                       type="text"
+                                       value={resetNotifyEmail}
+                                       placeholder="security@example.com, helpdesk@example.com"
+                                       label={t('settings.resetNotifyEmail.label')}
+                                       help={t('settings.resetNotifyEmail.help')}
+                                       onChange={v => setResetNotifyEmail(v)}/>
 
                             {errorKey && (
                                 <Typography role="alert"
