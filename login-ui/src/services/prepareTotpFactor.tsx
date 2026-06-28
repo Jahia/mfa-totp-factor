@@ -1,4 +1,10 @@
-import { type BaseError, type BaseSuccess, createError, networkError } from "./common";
+import {
+  type BaseError,
+  type BaseSuccess,
+  blockingFactorStateError,
+  createError,
+  networkError,
+} from "./common";
 
 interface PrepareTotpFactorResultSuccess extends BaseSuccess {
   /** True when the factor does not apply to this session — drain it with verify(""). */
@@ -61,8 +67,9 @@ export default async function prepareTotpFactor(
     });
     const result = await response.json();
     const preparation = result?.data?.upa?.mfaFactors?.totp?.prepare;
-    const success =
-      preparation?.session?.factorState?.prepared && !preparation?.session?.factorState?.error;
+    const factorState = preparation?.session?.factorState;
+    const blockingError = blockingFactorStateError(factorState);
+    const success = factorState?.prepared && !blockingError;
     if (success) {
       return {
         success: true,

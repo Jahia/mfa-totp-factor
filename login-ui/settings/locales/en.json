@@ -3,6 +3,7 @@
     "fatal.title": "Sign-in problem",
     "unexpected_error": "An unexpected error occurred",
     "network_error": "Could not reach the server. Check your connection and try again.",
+    "prepare.rate_limit_exceeded": "Too many requests. Please wait {{nextRetryInSeconds}} seconds and try again.",
     "chooser.useDifferentMethod": "Use a different method",
     "no_active_session": "No active session found. Please refresh the page and retry login again.",
     "authentication_failed": "Invalid username or password",

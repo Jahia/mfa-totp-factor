@@ -49,6 +49,33 @@ export function networkError(): BaseError {
   };
 }
 
+/** The per-factor state carried by a prepare response. */
+export interface FactorState {
+  prepared?: boolean;
+  error?: MfaError | null;
+}
+
+/**
+ * The factorState error a prepare call should SURFACE, or undefined when it must be ignored.
+ *
+ * A {@code prepare.rate_limit_exceeded} on an ALREADY-prepared factor is harmless: the server
+ * returns the still-valid challenge/code/marker from the prior prepare, so the ceremony can
+ * proceed. Re-mounting a verification form (e.g. via "use a different method", or a re-render)
+ * re-fires prepare and trips the limiter, which would otherwise surface a spurious error even
+ * though a usable artifact came back. The rate limit only genuinely blocks when the factor is not
+ * prepared yet (nothing usable exists) — that case is still surfaced, with its nextRetryInSeconds.
+ */
+export function blockingFactorStateError(factorState?: FactorState | null): MfaError | undefined {
+  const error = factorState?.error;
+  if (!error) {
+    return undefined;
+  }
+  if (factorState?.prepared && error.code === "prepare.rate_limit_exceeded") {
+    return undefined;
+  }
+  return error;
+}
+
 /**
  * Creates an error response based on provided session and factor errors.
  * If neither session nor factor errors are provided, an "unexpected_error" error is returned

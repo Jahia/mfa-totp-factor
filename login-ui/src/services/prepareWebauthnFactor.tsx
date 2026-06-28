@@ -1,4 +1,10 @@
-import { type BaseError, type BaseSuccess, createError, networkError } from "./common";
+import {
+  type BaseError,
+  type BaseSuccess,
+  blockingFactorStateError,
+  createError,
+  networkError,
+} from "./common";
 
 interface PrepareWebauthnFactorResultSuccess extends BaseSuccess {
   /** The navigator.credentials.get() options JSON, or null when the factor was skipped. */
@@ -50,9 +56,11 @@ export default async function prepareWebauthnFactor(
     });
     const result = await response.json();
     const preparation = result?.data?.upa?.mfaFactors?.webauthn?.prepare;
+    const factorState = preparation?.session?.factorState;
+    const blockingError = blockingFactorStateError(factorState);
     const success =
-      preparation?.session?.factorState?.prepared &&
-      !preparation?.session?.factorState?.error &&
+      factorState?.prepared &&
+      !blockingError &&
       (preparation?.publicKeyCredentialRequestOptions || preparation?.skipped);
     if (success) {
       return {
