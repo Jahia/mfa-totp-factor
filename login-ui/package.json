@@ -1,7 +1,7 @@
 {
   "name": "mfa-factors-login-ui",
   "description": "Shared sign-in UI for the MFA factors \u2014 a Jahia authentication template that performs username/password then TOTP / WebAuthn / email-code verification.",
-  "version": "1.0.0-SNAPSHOT",
+  "version": "0.1.1",
   "type": "module",
   "files": [
     "dist",

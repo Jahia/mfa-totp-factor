@@ -12,7 +12,7 @@
 
     <groupId>org.jahia.community</groupId>
     <artifactId>mfa-factors-extensions</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>UPA - MFA factors - shared extensions</name>
     <packaging>bundle</packaging>
     <description>Shared, factor-agnostic infrastructure for the MFA factor family: the /cms/login

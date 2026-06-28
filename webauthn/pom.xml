@@ -12,7 +12,7 @@
 
     <groupId>org.jahia.community</groupId>
     <artifactId>mfa-factors-webauthn</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>UPA - MFA factors - WebAuthn</name>
     <packaging>bundle</packaging>
     <description>Third-party Jahia module adding a WebAuthn / FIDO2 (passkey, security key,

@@ -12,7 +12,7 @@
 
     <groupId>org.jahia.community</groupId>
     <artifactId>mfa-community-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>UPA - MFA community (root)</name>
     <packaging>pom</packaging>
     <description>Root of the multi-module project: the shared extensions bundle, the MFA factor OSGi

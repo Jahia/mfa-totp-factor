@@ -12,7 +12,7 @@
 
     <groupId>org.jahia.community</groupId>
     <artifactId>mfa-factors-totp</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>UPA - MFA factors - TOTP</name>
     <packaging>bundle</packaging>
     <description>Third-party Jahia module adding a TOTP (RFC 6238 / Google Authenticator)
