@@ -1,0 +1,15 @@
+<svg width="128" height="128" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MFA WebAuthn factor module icon">
+  <defs>
+    <linearGradient id="bg-wan" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3D2A66"/>
+      <stop offset="1" stop-color="#0E1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#bg-wan)"/>
+  <circle cx="18.5" cy="18.5" r="6.8" stroke="#F4F6FB" stroke-width="2.6" fill="none"/>
+  <circle cx="18.5" cy="18.5" r="2.1" fill="#A855F7"/>
+  <g stroke="#F4F6FB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23.3 23.3 L34 34"/>
+    <path d="M30.5 30.5 L33.5 27.5"/>
+  </g>
+</svg>
